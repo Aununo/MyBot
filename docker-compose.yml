@@ -1,0 +1,31 @@
+services:
+  nonebot:
+    container_name: nonebot_app
+    build: . 
+    restart: always
+    env_file:
+      - .env 
+    volumes:
+      - ./data:/app/data
+    networks:
+      - bot-network
+
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: napcat_client
+    hostname: napcat-stable 
+    restart: always
+    depends_on: 
+      - nonebot
+    environment:
+      - MODE=nonebot
+      - NAPCAT_UID=${NAPCAT_UID:-1000}
+      - NAPCAT_GID=${NAPCAT_GID:-1000}
+    volumes:
+      - ./napcat_qq_data:/app/.config/QQ
+    networks:
+      - bot-network
+
+networks:
+  bot-network:
+    driver: bridge
