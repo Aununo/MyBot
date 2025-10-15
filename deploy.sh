@@ -115,6 +115,7 @@ configure_env() {
         fi
     done
     
+    echo ""
     # 天气 API Key（可选）
     read -p "OpenWeatherMap API Key（可选，回车跳过）: " weather_key
     if [ -n "$weather_key" ]; then

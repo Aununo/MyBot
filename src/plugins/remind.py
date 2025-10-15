@@ -176,7 +176,7 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
         now = datetime.now(TARGET_TZ)
         target_date = parse_date(date_str, now)
         if target_date is None:
-            await remind.finish(f"日期格式 "{date_str}" 不正确哦！\n支持格式：明天、后天、3天后、2025-10-20、10-20")
+            await remind.finish(f"日期格式 \"{date_str}\" 不正确哦！\n支持格式：明天、后天、3天后、2025-10-20、10-20")
             return
     
     user_id = str(event.user_id)
