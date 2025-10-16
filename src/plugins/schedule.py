@@ -174,9 +174,7 @@ def format_course_info(course: Dict) -> str:
     time_str = f"{start_time}-{end_time}" if start_time and end_time else ""
 
     weeks = course.get('weeks', [])
-    weeks_str = ','.join(map(str, weeks))
-    if len(weeks_str) > 20:
-        weeks_str = f"{weeks[0]}-{weeks[-1]}"
+    weeks_str = f"{weeks[0]}-{weeks[-1]}"
 
     return (
         f"📕 {course.get('name', '未知课程')}\n"
