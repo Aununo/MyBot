@@ -54,12 +54,12 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/yourusername/mybot.git
-cd mybot
+git clone https://github.com/yourusername/MyBot.git
+cd MyBot
 
 # 2. 运行一键部署脚本
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh
+chmod +x deploy.sh
+./deploy.sh
 
 # 3. 按提示完成配置，扫码登录即可使用
 ```
@@ -68,8 +68,8 @@ chmod +x scripts/deploy.sh
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/yourusername/mybot.git
-cd mybot
+git clone https://github.com/yourusername/MyBot.git
+cd MyBot
 
 # 2. 复制并编辑环境变量
 cp env.example .env
@@ -131,8 +131,7 @@ mybot/
 │   ├── REMIND_GUIDE.md    
 │   ├── TODO_GUIDE.md      
 │   └── ...                
-└── scripts/               # 脚本
-    └── deploy.sh          # 一键部署脚本
+└── deploy.sh              # 一键部署脚本
 ```
 
 
