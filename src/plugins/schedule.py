@@ -174,7 +174,17 @@ def format_course_info(course: Dict) -> str:
     time_str = f"{start_time}-{end_time}" if start_time and end_time else ""
 
     weeks = course.get('weeks', [])
-    weeks_str = f"{weeks[0]}-{weeks[-1]}"
+    
+    if not weeks:
+        weeks_str = "无"
+    elif len(weeks) == 1:
+        weeks_str = str(weeks[0])
+    else:
+        is_consecutive = all(weeks[i] == weeks[i-1] + 1 for i in range(1, len(weeks)))
+        if is_consecutive:
+            weeks_str = f"{weeks[0]}-{weeks[-1]}"
+        else:
+            weeks_str = ",".join(map(str, weeks))
 
     return (
         f"📕 {course.get('name', '未知课程')}\n"
