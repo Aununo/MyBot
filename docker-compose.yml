@@ -24,6 +24,7 @@ services:
       - NAPCAT_GID=${NAPCAT_GID:-1000}
     volumes:
       - ./napcat_qq_data:/app/.config/QQ
+      - ./src:/app/src
     networks:
       - bot-network
 
