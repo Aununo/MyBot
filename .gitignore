@@ -136,6 +136,9 @@ src/plugins/reminders_data.json
 src/plugins/todo_data.json
 src/plugins/eat_data.json
 
+# 插件资源文件夹（图片、视频等）
+src/plugins/assets/
+
 # 二维码和临时文件
 qrcode*.png
 *.qrcode.png
