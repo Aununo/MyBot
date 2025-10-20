@@ -41,16 +41,26 @@ HELP_TEXT = """====== 机器人指令帮助 ======
   » 例: /cancelremind 开会
 
 📋【待办事项插件】
-管理你的个人待办事项列表。
+管理你的个人待办事项列表，支持工作(work)和娱乐(play)分类。
 
-- /todo add <内容>
-  » 添加一个新的待办事项。
-- /todo (或 /todo list)
-  » 查看你所有的待办事项。
-- /todo done <编号>
-  » 标记一个或多个事项为已完成。
-- /todo clear
-  » 清除所有已完成的事项。
+- /todo work add <内容>
+  » 添加一个工作待办事项。
+- /todo play add <内容>
+  » 添加一个娱乐待办事项。
+- /todo work [list]
+  » 查看工作待办列表。
+- /todo play [list]
+  » 查看娱乐待办列表。
+- /todo list (或直接 /todo)
+  » 查看所有分类的待办事项。
+- /todo work done <编号>
+  » 标记工作事项为已完成。
+- /todo play done <编号>
+  » 标记娱乐事项为已完成。
+- /todo work clear
+  » 清除已完成的工作事项。
+- /todo play clear
+  » 清除已完成的娱乐事项。
 
 🌦️【天气查询插件】
 查询指定城市的实时天气信息。
