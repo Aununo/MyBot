@@ -7,9 +7,9 @@
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-brightgreen.svg)](docker-compose.yml)
 
-基于 NoneBot2 和 NapCat 的功能丰富的 QQ 机器人，支持课表管理、提醒、待办事项、天气查询等多种实用功能。
+基于 NoneBot2 和 NapCat 的功能丰富的 QQ 机器人，支持提醒、待办事项、天气查询等多种实用功能。
 
-[快速开始](#-快速开始) • [功能特性](#-功能特性) • [插件列表](#-插件列表) • [文档](#-文档)
+[快速开始](#-快速开始) • [功能特性](#-功能特性) • [插件列表](#-插件列表) • [常用命令](#-常用命令)
 
 </div>
 
@@ -37,6 +37,7 @@
 - 📅 **schedule** - 个人课程表管理 (`/今日课表`)
 - ⏰ **remind** - 灵活的提醒功能 (`/remind`)
 - ✅ **todo** - 待办事项管理 (`/todo`)
+- ⏳ **countdown** - 事件倒计时管理 (`/time`)
 - 🍔 **eat** - 今天吃什么推荐 (`/android`, `/apple`)
 - 🌤️ **weather** - 城市天气查询 (`/天气 北京`)
 - 🔬 **latex** - LaTeX 公式渲染 (`/latex E=mc^2`)
@@ -119,18 +120,12 @@ mybot/
 ├── src/
 │   └── plugins/           # 自定义插件目录
 │       ├── help.py
-│       ├── schedule.py
 │       ├── remind.py
 │       └── ...
 ├── data/                   # 数据持久化目录（不上传 Git）
 │   ├── reminders_data.json
 │   ├── todo_data.json
-│   └── eat_data.json
-├── docs/                   # 详细文档
-│   ├── README.md          # 插件指南索引
-│   ├── REMIND_GUIDE.md    
-│   ├── TODO_GUIDE.md      
-│   └── ...                
+│   └── ...              
 └── deploy.sh              # 一键部署脚本
 ```
 
