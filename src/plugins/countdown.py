@@ -3,10 +3,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
 
+from zoneinfo import ZoneInfo
 from nonebot import on_command
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11 import MessageEvent, Message
 from nonebot.params import CommandArg
+from nonebot.log import logger
 
 
 plugin_dir = Path(__file__).parent
@@ -16,6 +18,13 @@ if not data_dir.exists():
     data_dir = plugin_dir
 
 data_file = data_dir / "countdown_data.json"
+
+
+try:
+    TARGET_TZ = ZoneInfo("Asia/Shanghai")
+except Exception:
+    logger.error("加载时区 'Asia/Shanghai' 失败，请确保 Python 版本 >= 3.9 或已安装 tzdata (pip install tzdata)。")
+    TARGET_TZ = None
 
 
 CountdownDataType = Dict[str, Dict[str, Dict[str, Any]]]
@@ -59,7 +68,8 @@ def parse_datetime(date_str: str) -> datetime:
     
     for fmt in formats:
         try:
-            return datetime.strptime(date_str, fmt)
+            dt = datetime.strptime(date_str, fmt)
+            return dt.replace(tzinfo=TARGET_TZ)
         except ValueError:
             continue
     
@@ -122,7 +132,7 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
             )
         else:
             parts = ["⏰ 你的所有倒计时事件：\n"]
-            now = datetime.now()
+            now = datetime.now(TARGET_TZ)
             active_events = []
             
             for event_name, event_data in countdown_data[user_id].items():
@@ -170,7 +180,7 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
             )
             return
         
-        now = datetime.now()
+        now = datetime.now(TARGET_TZ)
         if event_time <= now:
             await matcher.finish("❌ 截止时间必须是未来的时间！")
             return
@@ -213,7 +223,7 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
             return
         
         parts_list = ["⏰ 你的所有倒计时事件：\n"]
-        now = datetime.now()
+        now = datetime.now(TARGET_TZ)
         active_events = []
         
         for event_name, event_data in countdown_data[user_id].items():
@@ -243,7 +253,7 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
         
         event_data = countdown_data[user_id][event_name]
         event_time = datetime.fromisoformat(event_data["time"])
-        now = datetime.now()
+        now = datetime.now(TARGET_TZ)
         td = event_time - now
         
         if td.total_seconds() > 0:
