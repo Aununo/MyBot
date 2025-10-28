@@ -144,6 +144,17 @@ def parse_date(date_str: str, now: datetime) -> datetime:
     
     return None
 
+
+def parse_weekday(weekday_str: str) -> int:
+    """解析周几字符串，返回对应的数字（0=周一, 6=周日）"""
+    weekday_map = {
+        "周一": 0, "周二": 1, "周三": 2, "周四": 3,
+        "周五": 4, "周六": 5, "周日": 6, "周天": 6,
+        "星期一": 0, "星期二": 1, "星期三": 2, "星期四": 3,
+        "星期五": 4, "星期六": 5, "星期日": 6, "星期天": 6,
+    }
+    return weekday_map.get(weekday_str)
+
 @remind.handle()
 async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
     if not scheduler or not TARGET_TZ:
@@ -171,17 +182,23 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
             "      /remind 开会 14:30 明天\n"
             "      /remind 复习 09:00 2025-10-20\n"
             "      /remind 运动 07:00 --everyday\n"
-            "      /remind 换水 08:00 --every3days"
+            "      /remind 换水 08:00 --every3days\n"
+            "      /remind 吃药 13:00 周二 周四"
         )
         return
 
     time_str = None
     date_str = None
     event_tokens = []
+    weekdays = []
     
     for i, token in enumerate(tokens):
         if re.match(r"^(?:[01]\d|2[0-3]):[0-5]\d$", token):
             time_str = token
+        elif parse_weekday(token) is not None:
+            weekday_num = parse_weekday(token)
+            if weekday_num not in weekdays:
+                weekdays.append(weekday_num)
         elif parse_date(token, datetime.now(TARGET_TZ)) is not None or token in ["明天", "后天", "大后天"] or re.match(r'^\d+天后$', token) or re.match(r'^\d{4}-\d{1,2}-\d{1,2}$', token) or re.match(r'^\d{1,2}-\d{1,2}$', token):
             date_str = token
         else:
@@ -232,7 +249,27 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
     job_id = f"reminder_{user_id}_{uuid.uuid4()}"
     job_args = [bot, session_id, event.user_id, event_text, job_id, is_group]
 
-    if is_daily:
+    if weekdays:
+        if is_daily or interval_days:
+            await remind.finish("❌ 周几提醒不能与每天/间隔提醒同时使用！")
+            return
+        if date_str:
+            await remind.finish("❌ 周几提醒不能指定具体日期！")
+            return
+        
+        weekdays.sort()
+        day_of_week_str = ",".join(["mon", "tue", "wed", "thu", "fri", "sat", "sun"][day] for day in weekdays)
+        
+        try:
+            scheduler.add_job(
+                send_reminder, "cron", hour=hour, minute=minute, day_of_week=day_of_week_str,
+                id=job_id, args=job_args, timezone=TARGET_TZ, replace_existing=True
+            )
+        except (ValueError, TypeError) as e:
+            logger.error(f"添加周几提醒任务到调度器失败: {e}")
+            await remind.finish("哎呀，添加提醒失败了，请稍后再试。")
+            return
+    elif is_daily:
         try:
             if target_date:
                 start_date = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=TARGET_TZ)
@@ -305,13 +342,19 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
         new_reminder["date"] = target_date.strftime("%Y-%m-%d")
     if interval_days:
         new_reminder["interval_days"] = interval_days
+    if weekdays:
+        new_reminder["weekdays"] = weekdays
     
     user_reminders.append(new_reminder)
     save_data()
 
     logger.info(f"为用户({user_id})在 Session({session_id}) 中设置了提醒: {new_reminder}")
 
-    if is_daily:
+    weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    if weekdays:
+        weekday_desc = "、".join([weekday_names[day] for day in sorted(weekdays)])
+        time_desc = f"每{weekday_desc}的 {time_str}"
+    elif is_daily:
         if target_date:
             time_desc = f"从{target_date.strftime('%Y年%m月%d日')}起，每天的 {time_str}"
         else:
@@ -400,6 +443,8 @@ async def handle_list_reminders(event: MessageEvent):
         if date_str:
             date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
             return (0, date_obj, r['hour'], r['minute'])
+        elif r.get('weekdays'):
+            return (4, datetime.max.date(), r['hour'], r['minute'])
         elif r.get('is_daily', False):
             return (3, datetime.max.date(), r['hour'], r['minute'])
         elif r.get('interval_days'):
@@ -408,10 +453,16 @@ async def handle_list_reminders(event: MessageEvent):
             return (1, datetime.now(TARGET_TZ).date(), r['hour'], r['minute'])
     
     sorted_reminders = sorted(user_reminders, key=sort_key)
+    weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    
     for r in sorted_reminders:
         time_str = f"{r['hour']:02d}:{r['minute']:02d}"
         
-        if r.get('is_daily', False):
+        if r.get('weekdays'):
+            weekday_list = [weekday_names[day] for day in sorted(r['weekdays'])]
+            weekday_desc = "、".join(weekday_list)
+            when_str = f"每{weekday_desc} {time_str}"
+        elif r.get('is_daily', False):
             if r.get('date'):
                 date_obj = datetime.strptime(r['date'], "%Y-%m-%d")
                 when_str = f"从{date_obj.strftime('%m月%d日')}起每天 {time_str}"
@@ -512,7 +563,14 @@ def reschedule_jobs(bot: Bot):
                 user_id_int = int(user_id)
                 job_args = [bot, session_id, user_id_int, event_text, job_id, is_group]
                 
-                if is_daily:
+                weekdays = reminder.get("weekdays")
+                if weekdays:
+                    day_of_week_str = ",".join(["mon", "tue", "wed", "thu", "fri", "sat", "sun"][day] for day in weekdays)
+                    scheduler.add_job(
+                        send_reminder, "cron", hour=hour, minute=minute, day_of_week=day_of_week_str,
+                        id=job_id, args=job_args, timezone=TARGET_TZ, replace_existing=True
+                    )
+                elif is_daily:
                     if date_str:
                         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                         start_date = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=TARGET_TZ)
