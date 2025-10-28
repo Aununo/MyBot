@@ -20,13 +20,17 @@ HELP_TEXT = """====== 机器人指令帮助 ======
 ⏰【提醒插件】
 一个灵活的提醒工具，可用于任何事件。
 
-- /remind <事件> <时间> [日期] [--everyday]
-  » 设置提醒。支持指定未来日期，--everyday 可设为每日重复。
+- /remind <事件> <时间> [日期] [--everyday | --everyNdays]
+  » 设置提醒。支持指定未来日期，--everyday 每日重复，--everyNdays 每隔N天重复。
+  » 日期和重复参数可叠加使用（从指定日期开始重复）。
   » 例 (今天): /remind 开会 14:30
   » 例 (明天): /remind 开会 14:30 明天
   » 例 (指定日期): /remind 考试 09:00 2025-10-20
   » 例 (相对日期): /remind 复习 19:00 3天后
   » 例 (每日): /remind 上床 23:00 --everyday
+  » 例 (每隔3天): /remind 换水 08:00 --every3days
+  » 例 (从明天起每日): /remind 开会 08:00 明天 --everyday
+  » 例 (从指定日期起每3天): /remind 吃药 12:00 2025-11-01 --every3days
   » 支持日期格式: 明天、后天、N天后、YYYY-MM-DD、MM-DD
 
 - /notready <新时间>

@@ -79,11 +79,31 @@ async def send_reminder(bot: Bot, session_id: str, user_id: int, event_text: str
     user_reminders = reminders_data.get(str(user_id), [])
     reminder_to_check = next((r for r in user_reminders if r.get("job_id") == job_id), None)
 
-    if reminder_to_check and not reminder_to_check.get("is_daily"):
+    if reminder_to_check and not reminder_to_check.get("is_daily") and not reminder_to_check.get("interval_days"):
         reminders_to_keep = [r for r in user_reminders if r.get("job_id") != job_id]
         reminders_data[str(user_id)] = reminders_to_keep
         save_data()
         logger.info(f"已移除执行完毕的一次性提醒任务({job_id})")
+    
+    if reminder_to_check and reminder_to_check.get("interval_days"):
+        interval_days = reminder_to_check.get("interval_days")
+        hour = reminder_to_check.get("hour")
+        minute = reminder_to_check.get("minute")
+        
+        next_time = (datetime.now(TARGET_TZ) + timedelta(days=interval_days)).replace(
+            hour=hour, minute=minute, second=0, microsecond=0
+        )
+        
+        job_args = [bot, session_id, user_id, event_text, job_id, is_group]
+        
+        try:
+            scheduler.add_job(
+                send_reminder, "date", run_date=next_time,
+                id=job_id, args=job_args, timezone=TARGET_TZ
+            )
+            logger.info(f"已为间隔提醒({job_id})设置下一次触发时间: {next_time}")
+        except (ValueError, TypeError) as e:
+            logger.error(f"为间隔提醒设置下一次触发失败: {e}")
 
 
 remind = on_command("remind", priority=5, block=True)
@@ -132,19 +152,26 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
     plain_text = args.extract_plain_text().strip()
 
     is_daily = False
+    interval_days = None
     if plain_text.endswith("--everyday"):
         is_daily = True
         plain_text = plain_text.removesuffix("--everyday").strip()
+    else:
+        interval_match = re.search(r'--every(\d+)days?$', plain_text)
+        if interval_match:
+            interval_days = int(interval_match.group(1))
+            plain_text = re.sub(r'--every\d+days?$', '', plain_text).strip()
 
     tokens = plain_text.split()
     if not tokens:
         await remind.finish(
             "格式不对哦！\n"
-            "正确格式: /remind <事件> <时间> [日期] [--everyday]\n"
+            "正确格式: /remind <事件> <时间> [日期] [--everyday/--everyNdays]\n"
             "例如: /remind 吃药 13:00\n"
             "      /remind 开会 14:30 明天\n"
             "      /remind 复习 09:00 2025-10-20\n"
-            "      /remind 运动 07:00 --everyday"
+            "      /remind 运动 07:00 --everyday\n"
+            "      /remind 换水 08:00 --every3days"
         )
         return
 
@@ -172,7 +199,7 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
     hour, minute = map(int, time_str.split(':'))
     
     target_date = None
-    if date_str and not is_daily:
+    if date_str:
         now = datetime.now(TARGET_TZ)
         target_date = parse_date(date_str, now)
         if target_date is None:
@@ -207,12 +234,40 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
 
     if is_daily:
         try:
-            scheduler.add_job(
-                send_reminder, "cron", hour=hour, minute=minute,
-                id=job_id, args=job_args, timezone=TARGET_TZ, replace_existing=True
-            )
+            if target_date:
+                start_date = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=TARGET_TZ)
+                scheduler.add_job(
+                    send_reminder, "cron", hour=hour, minute=minute,
+                    id=job_id, args=job_args, timezone=TARGET_TZ, start_date=start_date, replace_existing=True
+                )
+            else:
+                scheduler.add_job(
+                    send_reminder, "cron", hour=hour, minute=minute,
+                    id=job_id, args=job_args, timezone=TARGET_TZ, replace_existing=True
+                )
         except (ValueError, TypeError) as e:
             logger.error(f"添加每日提醒任务到调度器失败: {e}")
+            await remind.finish("哎呀，添加提醒失败了，请稍后再试。")
+            return
+    elif interval_days:
+        now = datetime.now(TARGET_TZ)
+        if target_date:
+            first_reminder_time = datetime.combine(target_date, datetime.min.time()).replace(
+                hour=hour, minute=minute, second=0, microsecond=0, tzinfo=TARGET_TZ
+            )
+        else:
+            first_reminder_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        if first_reminder_time < now:
+            first_reminder_time = (now + timedelta(days=interval_days)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        try:
+            scheduler.add_job(
+                send_reminder, "date", run_date=first_reminder_time,
+                id=job_id, args=job_args, timezone=TARGET_TZ
+            )
+        except (ValueError, TypeError) as e:
+            logger.error(f"添加间隔提醒任务到调度器失败: {e}")
             await remind.finish("哎呀，添加提醒失败了，请稍后再试。")
             return
     else:
@@ -248,6 +303,8 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
     }
     if target_date:
         new_reminder["date"] = target_date.strftime("%Y-%m-%d")
+    if interval_days:
+        new_reminder["interval_days"] = interval_days
     
     user_reminders.append(new_reminder)
     save_data()
@@ -255,7 +312,15 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
     logger.info(f"为用户({user_id})在 Session({session_id}) 中设置了提醒: {new_reminder}")
 
     if is_daily:
-        time_desc = f"每天的 {time_str}"
+        if target_date:
+            time_desc = f"从{target_date.strftime('%Y年%m月%d日')}起，每天的 {time_str}"
+        else:
+            time_desc = f"每天的 {time_str}"
+    elif interval_days:
+        if target_date:
+            time_desc = f"从{target_date.strftime('%Y年%m月%d日')} {time_str} 起，每{interval_days}天"
+        else:
+            time_desc = f"每{interval_days}天的 {time_str}"
     elif target_date:
         time_desc = f"{target_date.strftime('%Y年%m月%d日')} {time_str}"
     else:
@@ -336,7 +401,9 @@ async def handle_list_reminders(event: MessageEvent):
             date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
             return (0, date_obj, r['hour'], r['minute'])
         elif r.get('is_daily', False):
-            return (2, datetime.max.date(), r['hour'], r['minute'])
+            return (3, datetime.max.date(), r['hour'], r['minute'])
+        elif r.get('interval_days'):
+            return (2, datetime.now(TARGET_TZ).date(), r['hour'], r['minute'])
         else:
             return (1, datetime.now(TARGET_TZ).date(), r['hour'], r['minute'])
     
@@ -345,7 +412,18 @@ async def handle_list_reminders(event: MessageEvent):
         time_str = f"{r['hour']:02d}:{r['minute']:02d}"
         
         if r.get('is_daily', False):
-            when_str = f"每天 {time_str}"
+            if r.get('date'):
+                date_obj = datetime.strptime(r['date'], "%Y-%m-%d")
+                when_str = f"从{date_obj.strftime('%m月%d日')}起每天 {time_str}"
+            else:
+                when_str = f"每天 {time_str}"
+        elif r.get('interval_days'):
+            interval = r.get('interval_days')
+            if r.get('date'):
+                date_obj = datetime.strptime(r['date'], "%Y-%m-%d")
+                when_str = f"从{date_obj.strftime('%m月%d日')}起每{interval}天 {time_str}"
+            else:
+                when_str = f"每{interval}天 {time_str}"
         elif r.get('date'):
             date_obj = datetime.strptime(r['date'], "%Y-%m-%d")
             when_str = f"{date_obj.strftime('%m月%d日')} {time_str}"
@@ -422,6 +500,7 @@ def reschedule_jobs(bot: Bot):
                 hour = reminder.get("hour")
                 minute = reminder.get("minute")
                 is_daily = reminder.get("is_daily", False)
+                interval_days = reminder.get("interval_days")
                 session_id = reminder.get("session_id")
                 is_group = reminder.get("is_group", False)
                 date_str = reminder.get("date")
@@ -434,8 +513,25 @@ def reschedule_jobs(bot: Bot):
                 job_args = [bot, session_id, user_id_int, event_text, job_id, is_group]
                 
                 if is_daily:
+                    if date_str:
+                        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                        start_date = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=TARGET_TZ)
+                        scheduler.add_job(
+                            send_reminder, "cron", hour=hour, minute=minute,
+                            id=job_id, args=job_args, timezone=TARGET_TZ, start_date=start_date, replace_existing=True
+                        )
+                    else:
+                        scheduler.add_job(
+                            send_reminder, "cron", hour=hour, minute=minute,
+                            id=job_id, args=job_args, timezone=TARGET_TZ, replace_existing=True
+                        )
+                elif interval_days:
+                    reminder_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                    if reminder_time < now:
+                        reminder_time = (now + timedelta(days=interval_days)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+                    
                     scheduler.add_job(
-                        send_reminder, "cron", hour=hour, minute=minute,
+                        send_reminder, "date", run_date=reminder_time,
                         id=job_id, args=job_args, timezone=TARGET_TZ, replace_existing=True
                     )
                 else:

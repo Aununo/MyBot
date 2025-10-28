@@ -137,6 +137,8 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
             
             for event_name, event_data in countdown_data[user_id].items():
                 event_time = datetime.fromisoformat(event_data["time"])
+                if event_time.tzinfo is None:
+                    event_time = event_time.replace(tzinfo=TARGET_TZ)
                 td = event_time - now
                 
                 if td.total_seconds() > 0:
@@ -228,6 +230,8 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
         
         for event_name, event_data in countdown_data[user_id].items():
             event_time = datetime.fromisoformat(event_data["time"])
+            if event_time.tzinfo is None:
+                event_time = event_time.replace(tzinfo=TARGET_TZ)
             td = event_time - now
             
             if td.total_seconds() > 0:
@@ -253,6 +257,8 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
         
         event_data = countdown_data[user_id][event_name]
         event_time = datetime.fromisoformat(event_data["time"])
+        if event_time.tzinfo is None:
+            event_time = event_time.replace(tzinfo=TARGET_TZ)
         now = datetime.now(TARGET_TZ)
         td = event_time - now
         
