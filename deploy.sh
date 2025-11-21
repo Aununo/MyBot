@@ -122,6 +122,30 @@ configure_env() {
         sed -i "s|WEATHER_API_KEY=.*|WEATHER_API_KEY=$weather_key|" .env
         print_success "✅ 天气插件配置成功"
     fi
+
+    echo ""
+    # 邮箱配置（可选）
+    read -p "是否配置邮箱通知？(y/N): " config_email
+    if [[ "$config_email" =~ ^[Yy]$ ]]; then
+        read -p "IMAP 服务器 (默认 imap.gmail.com): " imap_server
+        imap_server=${imap_server:-imap.gmail.com}
+        sed -i "s|EMAIL_IMAP_SERVER=.*|EMAIL_IMAP_SERVER=$imap_server|" .env
+        
+        read -p "IMAP 端口 (默认 993): " imap_port
+        imap_port=${imap_port:-993}
+        sed -i "s|EMAIL_IMAP_PORT=.*|EMAIL_IMAP_PORT=$imap_port|" .env
+        
+        read -p "邮箱账号: " email_user
+        if [ -n "$email_user" ]; then
+            sed -i "s|EMAIL_USER=.*|EMAIL_USER=$email_user|" .env
+        fi
+        
+        read -p "邮箱密码 (应用专用密码): " email_pass
+        if [ -n "$email_pass" ]; then
+            sed -i "s|EMAIL_PASSWORD=.*|EMAIL_PASSWORD=$email_pass|" .env
+        fi
+        print_success "✅ 邮箱插件配置成功"
+    fi
     
     echo ""
     print_success "✅ 环境变量配置完成"

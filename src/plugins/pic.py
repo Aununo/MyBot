@@ -5,7 +5,8 @@ import random
 import shutil
 from pathlib import Path
 
-from nonebot import on_command, logger
+from nonebot import on_command, on_message, logger
+from nonebot.exception import FinishedException
 from nonebot.adapters.onebot.v11 import MessageEvent, Bot, Message, MessageSegment
 from nonebot.params import CommandArg
 from nonebot.typing import T_State
@@ -287,4 +288,89 @@ async def randpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
         return
         
     await randpic.finish(msg)
+
+
+# --- 7. 自动回复表情（关键词触发） ---
+autopic = on_message(priority=10, block=False)
+
+@autopic.handle()
+async def autopic_handle(bot: Bot, event: MessageEvent):
+    # 只处理群消息
+    if event.message_type != "group":
+        return
+    
+    # 获取消息文本
+    msg_text = event.get_plaintext().strip()
+    if not msg_text:
+        return
+    
+    # 如果消息以命令前缀开头，忽略（避免与命令冲突）
+    if msg_text.startswith("/") or msg_text.startswith("！") or msg_text.startswith("!"):
+        return
+    
+    # 获取默认文件夹下的所有文件
+    try:
+        all_files = [f for f in os.listdir(default_pics_dir) 
+                    if os.path.isfile(default_pics_dir / f)]
+    except Exception as e:
+        logger.error(f"读取默认文件夹时发生错误: {e}")
+        return
+    
+    if not all_files:
+        return
+    
+    # 查找匹配的文件（支持双向匹配：文件名在消息中，或消息关键词在文件名中）
+    matched_files = []
+    # 将消息按空格分割成关键词列表
+    keywords = msg_text.split()
+    
+    for filename in all_files:
+        # 获取文件名（不含扩展名）
+        name_without_ext = Path(filename).stem
+        
+        # 检查1：文件名（不含扩展名）是否在消息中
+        if name_without_ext in msg_text:
+            matched_files.append(filename)
+            continue
+        
+        # 将文件名按常见分隔符（点号、下划线、连字符）分割成多个部分
+        name_parts = re.split(r'[._-]', name_without_ext)
+        # 过滤掉空字符串
+        name_parts = [part for part in name_parts if part]
+        
+        # 检查2：消息中的任何关键词必须完全匹配文件名分割后的某个部分
+        matched = False
+        for keyword in keywords:
+            # 只进行精确匹配：关键词必须完全等于文件名分割后的某个部分
+            if keyword in name_parts:
+                matched = True
+                break
+        
+        if matched:
+            matched_files.append(filename)
+    
+    if not matched_files:
+        return
+    
+    # 如果多个文件匹配，随机选择一个
+    if len(matched_files) > 1:
+        logger.debug(f"关键词 '{msg_text}' 匹配到 {len(matched_files)} 个文件: {matched_files}")
+    selected_file = random.choice(matched_files)
+    file_path = default_pics_dir / selected_file
+    
+    try:
+        if file_path.suffix.lower() in IMAGE_EXTENSIONS:
+            msg_segment = MessageSegment.image(file=file_path)
+        elif file_path.suffix.lower() in VIDEO_EXTENSIONS:
+            msg_segment = MessageSegment.video(file=file_path)
+        else:
+            return
+        
+        await autopic.finish(msg_segment)
+    except FinishedException:
+        # FinishedException 是正常的流程控制异常，不需要记录为错误
+        raise
+    except Exception as e:
+        logger.error(f"自动发送文件失败: {e}")
+        return
 

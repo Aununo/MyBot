@@ -2,11 +2,12 @@ import httpx
 import os
 from nonebot import on_command, get_driver
 from nonebot.adapters.onebot.v11 import MessageEvent, Message
+from nonebot.exception import FinishedException
 from nonebot.log import logger
 from nonebot.params import CommandArg, ArgPlainText
 from nonebot.plugin import PluginMetadata
+from nonebot.rule import Rule
 from nonebot.typing import T_State
-from nonebot.exception import FinishedException
 from pydantic import BaseModel
 from datetime import datetime
 import pytz
@@ -26,7 +27,24 @@ except Exception as e:
     API_KEY = ""
 
 
-weather = on_command("weather", aliases={"天气"}, priority=5, block=True)
+def slash_only_rule(*commands: str) -> Rule:
+    async def _checker(event: MessageEvent) -> bool:
+        plain_text = event.get_plaintext().lstrip()
+        return any(
+            plain_text.startswith(command) and (len(plain_text) == len(command) or plain_text[len(command)].isspace())
+            for command in commands
+        )
+
+    return Rule(_checker)
+
+
+weather = on_command(
+    "weather",
+    aliases={"天气"},
+    priority=5,
+    block=True,
+    rule=slash_only_rule("/weather", "/天气"),
+)
 
 @weather.handle()
 async def handle_first_receive(state: T_State, args: Message = CommandArg()):
