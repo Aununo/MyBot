@@ -59,11 +59,14 @@ def load_data():
         reminders_data = {}
 
 
-async def send_reminder(bot: Bot, session_id: str, user_id: int, event_text: str, job_id: str, is_group: bool):
+async def send_reminder(bot: Bot, session_id: str, user_id: int, event_text: str, job_id: str, is_group: bool, mention_all: bool = False):
     logger.info(f"执行提醒任务({job_id}): Session({session_id}) -> 用户({user_id}) -> 事件({event_text})")
     
     if is_group:
-        msg = MessageSegment.at(user_id) + Message(f"该 {event_text} 啦！")
+        if mention_all:
+            msg = MessageSegment.at("all") + Message(f" 该 {event_text} 啦！")
+        else:
+            msg = MessageSegment.at(user_id) + Message(f" 该 {event_text} 啦！")
         await bot.send_group_msg(group_id=int(session_id), message=msg)
     else:
         msg = Message(f"该 {event_text} 啦！")
@@ -94,7 +97,8 @@ async def send_reminder(bot: Bot, session_id: str, user_id: int, event_text: str
             hour=hour, minute=minute, second=0, microsecond=0
         )
         
-        job_args = [bot, session_id, user_id, event_text, job_id, is_group]
+        mention_all = reminder_to_check.get("mention_all", False)
+        job_args = [bot, session_id, user_id, event_text, job_id, is_group, mention_all]
         
         try:
             scheduler.add_job(
@@ -107,6 +111,7 @@ async def send_reminder(bot: Bot, session_id: str, user_id: int, event_text: str
 
 
 remind = on_command("remind", priority=5, block=True)
+remind_all = on_command("remindall", priority=5, block=True)
 not_ready = on_command("notready", priority=5, block=True)
 list_reminders = on_command("listreminders", aliases={"我的提醒"}, priority=5, block=True)
 cancel_reminder = on_command("cancelremind", aliases={"取消提醒"}, priority=5, block=True)
@@ -154,6 +159,17 @@ def parse_weekday(weekday_str: str) -> int:
         "星期五": 4, "星期六": 5, "星期日": 6, "星期天": 6,
     }
     return weekday_map.get(weekday_str)
+
+
+async def check_group_admin(bot: Bot, group_id: int, user_id: int) -> bool:
+    """检查用户是否为群管理员或群主"""
+    try:
+        member_info = await bot.get_group_member_info(group_id=group_id, user_id=user_id)
+        role = member_info.get("role", "member")
+        return role in ["admin", "owner"]
+    except Exception as e:
+        logger.error(f"获取群成员信息失败: {e}")
+        return False
 
 @remind.handle()
 async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
@@ -373,6 +389,231 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
     await remind.finish(f"提醒{action_verb}成功！我会在{time_desc}提醒你【{event_text}】。")
 
 
+@remind_all.handle()
+async def handle_remind_all(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
+    """处理 /remindall 命令 - 艾特全体成员的提醒，仅限群聊"""
+    if not scheduler or not TARGET_TZ:
+        await remind_all.finish("抱歉，定时提醒功能未准备就绪，请联系管理员。")
+    
+    # 检查是否在群聊中
+    if not isinstance(event, GroupMessageEvent):
+        await remind_all.finish("❌ /remindall 命令仅支持在群聊中使用！")
+        return
+    
+    # 复用 handle_remind 的逻辑
+    plain_text = args.extract_plain_text().strip()
+
+    is_daily = False
+    interval_days = None
+    if plain_text.endswith("--everyday"):
+        is_daily = True
+        plain_text = plain_text.removesuffix("--everyday").strip()
+    else:
+        interval_match = re.search(r'--every(\d+)days?$', plain_text)
+        if interval_match:
+            interval_days = int(interval_match.group(1))
+            plain_text = re.sub(r'--every\d+days?$', '', plain_text).strip()
+
+    tokens = plain_text.split()
+    if not tokens:
+        await remind_all.finish(
+            "格式不对哦！\n"
+            "正确格式: /remindall <事件> <时间> [日期] [--everyday/--everyNdays]\n"
+            "例如: /remindall 开会 14:30\n"
+            "      /remindall 团建 09:00 明天\n"
+            "      /remindall 打卡 09:00 --everyday\n"
+            "      /remindall 活动 08:00 --every3days\n"
+            "      /remindall 例会 14:00 周一 周三"
+        )
+        return
+
+    time_str = None
+    date_str = None
+    event_tokens = []
+    weekdays = []
+    
+    for i, token in enumerate(tokens):
+        if re.match(r"^(?:[01]\d|2[0-3]):[0-5]\d$", token):
+            time_str = token
+        elif parse_weekday(token) is not None:
+            weekday_num = parse_weekday(token)
+            if weekday_num not in weekdays:
+                weekdays.append(weekday_num)
+        elif parse_date(token, datetime.now(TARGET_TZ)) is not None or token in ["明天", "后天", "大后天"] or re.match(r'^\d+天后$', token) or re.match(r'^\d{4}-\d{1,2}-\d{1,2}$', token) or re.match(r'^\d{1,2}-\d{1,2}$', token):
+            date_str = token
+        else:
+            event_tokens.append(token)
+    
+    if not time_str:
+        await remind_all.finish("请指定时间（HH:MM 格式），例如：13:00")
+        return
+    
+    if not event_tokens:
+        await remind_all.finish("格式不对哦！请输入要提醒的事件名称。")
+        return
+        
+    event_text = " ".join(event_tokens)
+    hour, minute = map(int, time_str.split(':'))
+    
+    target_date = None
+    if date_str:
+        now = datetime.now(TARGET_TZ)
+        target_date = parse_date(date_str, now)
+        if target_date is None:
+            await remind_all.finish(f"日期格式 \"{date_str}\" 不正确哦！\n支持格式：明天、后天、3天后、2025-10-20、10-20")
+            return
+    
+    user_id = str(event.user_id)
+    is_group = True
+    session_id = str(event.group_id)
+
+    reminders_data.setdefault(user_id, [])
+    user_reminders = reminders_data[user_id]
+    
+    existing_reminder_index = -1
+    for i, r in enumerate(user_reminders):
+        if r.get("event") == event_text:
+            existing_reminder_index = i
+            break
+            
+    if existing_reminder_index != -1:
+        old_job_id = user_reminders[existing_reminder_index].get("job_id")
+        if old_job_id:
+            try:
+                scheduler.remove_job(old_job_id)
+                logger.info(f"为更新提醒，已移除旧任务({old_job_id})")
+            except JobLookupError:
+                logger.warning(f"尝试移除旧任务({old_job_id})失败: 任务不存在。")
+        del user_reminders[existing_reminder_index]
+
+    job_id = f"reminder_{user_id}_{uuid.uuid4()}"
+    job_args = [bot, session_id, event.user_id, event_text, job_id, is_group, True]  # mention_all=True
+
+    if weekdays:
+        if is_daily or interval_days:
+            await remind_all.finish("❌ 周几提醒不能与每天/间隔提醒同时使用！")
+            return
+        if date_str:
+            await remind_all.finish("❌ 周几提醒不能指定具体日期！")
+            return
+        
+        weekdays.sort()
+        day_of_week_str = ",".join(["mon", "tue", "wed", "thu", "fri", "sat", "sun"][day] for day in weekdays)
+        
+        try:
+            scheduler.add_job(
+                send_reminder, "cron", hour=hour, minute=minute, day_of_week=day_of_week_str,
+                id=job_id, args=job_args, timezone=TARGET_TZ, replace_existing=True
+            )
+        except (ValueError, TypeError) as e:
+            logger.error(f"添加周几提醒任务到调度器失败: {e}")
+            await remind_all.finish("哎呀，添加提醒失败了，请稍后再试。")
+            return
+    elif is_daily:
+        try:
+            if target_date:
+                start_date = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=TARGET_TZ)
+                scheduler.add_job(
+                    send_reminder, "cron", hour=hour, minute=minute,
+                    id=job_id, args=job_args, timezone=TARGET_TZ, start_date=start_date, replace_existing=True
+                )
+            else:
+                scheduler.add_job(
+                    send_reminder, "cron", hour=hour, minute=minute,
+                    id=job_id, args=job_args, timezone=TARGET_TZ, replace_existing=True
+                )
+        except (ValueError, TypeError) as e:
+            logger.error(f"添加每日提醒任务到调度器失败: {e}")
+            await remind_all.finish("哎呀，添加提醒失败了，请稍后再试。")
+            return
+    elif interval_days:
+        now = datetime.now(TARGET_TZ)
+        if target_date:
+            first_reminder_time = datetime.combine(target_date, datetime.min.time()).replace(
+                hour=hour, minute=minute, second=0, microsecond=0, tzinfo=TARGET_TZ
+            )
+        else:
+            first_reminder_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        if first_reminder_time < now:
+            first_reminder_time = (now + timedelta(days=interval_days)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        try:
+            scheduler.add_job(
+                send_reminder, "date", run_date=first_reminder_time,
+                id=job_id, args=job_args, timezone=TARGET_TZ
+            )
+        except (ValueError, TypeError) as e:
+            logger.error(f"添加间隔提醒任务到调度器失败: {e}")
+            await remind_all.finish("哎呀，添加提醒失败了，请稍后再试。")
+            return
+    else:
+        now = datetime.now(TARGET_TZ)
+        if target_date:
+            reminder_time = datetime.combine(target_date, datetime.min.time()).replace(
+                hour=hour, minute=minute, second=0, microsecond=0, tzinfo=TARGET_TZ
+            )
+        else:
+            reminder_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        if reminder_time < now:
+            if target_date:
+                await remind_all.finish(f"设置失败：时间 {target_date} {time_str} 已经过去了。")
+            else:
+                await remind_all.finish(f"设置失败：时间 {time_str} 在今天已经过去了。")
+            return
+        
+        try:
+            scheduler.add_job(
+                send_reminder, "date", run_date=reminder_time,
+                id=job_id, args=job_args, timezone=TARGET_TZ
+            )
+        except (ValueError, TypeError) as e:
+            logger.error(f"添加一次性提醒任务到调度器失败: {e}")
+            await remind_all.finish("哎呀，添加提醒失败了，请稍后再试。")
+            return
+
+    new_reminder = {
+        "event": event_text, "hour": hour, "minute": minute,
+        "job_id": job_id, "is_daily": is_daily,
+        "session_id": session_id, "is_group": is_group,
+        "mention_all": True
+    }
+    if target_date:
+        new_reminder["date"] = target_date.strftime("%Y-%m-%d")
+    if interval_days:
+        new_reminder["interval_days"] = interval_days
+    if weekdays:
+        new_reminder["weekdays"] = weekdays
+    
+    user_reminders.append(new_reminder)
+    save_data()
+
+    logger.info(f"为用户({user_id})在 Session({session_id}) 中设置了艾特全体的提醒: {new_reminder}")
+
+    weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    if weekdays:
+        weekday_desc = "、".join([weekday_names[day] for day in sorted(weekdays)])
+        time_desc = f"每{weekday_desc}的 {time_str}"
+    elif is_daily:
+        if target_date:
+            time_desc = f"从{target_date.strftime('%Y年%m月%d日')}起，每天的 {time_str}"
+        else:
+            time_desc = f"每天的 {time_str}"
+    elif interval_days:
+        if target_date:
+            time_desc = f"从{target_date.strftime('%Y年%m月%d日')} {time_str} 起，每{interval_days}天"
+        else:
+            time_desc = f"每{interval_days}天的 {time_str}"
+    elif target_date:
+        time_desc = f"{target_date.strftime('%Y年%m月%d日')} {time_str}"
+    else:
+        time_desc = f"今天的 {time_str}"
+    
+    action_verb = "更新" if existing_reminder_index != -1 else "设置"
+    await remind_all.finish(f"@全体成员 提醒{action_verb}成功！我会在{time_desc}艾特全体成员提醒【{event_text}】。")
+
+
 @not_ready.handle()
 async def handle_not_ready(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
     if not scheduler or not TARGET_TZ:
@@ -561,7 +802,8 @@ def reschedule_jobs(bot: Bot):
                     continue
 
                 user_id_int = int(user_id)
-                job_args = [bot, session_id, user_id_int, event_text, job_id, is_group]
+                mention_all = reminder.get("mention_all", False)
+                job_args = [bot, session_id, user_id_int, event_text, job_id, is_group, mention_all]
                 
                 weekdays = reminder.get("weekdays")
                 if weekdays:

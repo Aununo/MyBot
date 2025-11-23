@@ -17,34 +17,36 @@
 
 ## ✨ 功能特性
 
-- 🚀 **开箱即用** - Docker Compose 一键部署，无需复杂配置
-- 📦 **丰富插件** - 若干内置插件，覆盖学习、生活、娱乐
-- 💾 **数据持久化** - 自动保存数据，重启不丢失
-- 🔧 **易于扩展** - 模块化设计，轻松添加自定义插件
-- 📊 **状态监控** - 实时查看 CPU、内存、运行状态
-- 🐳 **容器化部署** - Docker 隔离环境，稳定可靠
+- **开箱即用** - Docker Compose 一键部署，无需复杂配置
+- **丰富插件** - 若干内置插件，覆盖学习、生活、娱乐
+- **数据持久化** - 自动保存数据，重启不丢失
+- **Web 管理界面** - 现代化的可视化管理面板，支持远程管理
+- **易于扩展** - 模块化设计，轻松添加自定义插件
+- **状态监控** - 实时查看 CPU、内存、运行状态
+- **容器化部署** - Docker 隔离环境，稳定可靠
 
 ## 📦 插件列表
 
 ### 官方插件
-- ✅ **apscheduler** - 定时任务调度支持
-- ✅ **status** - 详细系统状态监控（`/status`）
+- **apscheduler** - 定时任务调度支持
+- **status** - 详细系统状态监控（`/status`）
 
 ### 自定义插件
 
-- 🔔 **help** - 查看所有命令帮助 (`/help`)
-- 📶 **ping** - 快速状态检查 (`/ping`)
-- 📅 **schedule** - 个人课程表管理 (`/今日课表`)
-- ⏰ **remind** - 灵活的提醒功能 (`/remind`)
-- ✅ **todo** - 待办事项管理 (`/todo`)
-- ⏳ **countdown** - 事件倒计时管理 (`/time`)
-- 🍔 **eat** - 今天吃什么推荐 (`/android`, `/apple`)
-- 🌤️ **weather** - 城市天气查询 (`/天气 北京`)
-- 🔬 **latex** - LaTeX 公式渲染 (`/latex E=mc^2`)
-- 🖼️ **pic** - 图片管理 (`/savepic`, `/sendpic`)
-- 📝 **relay** - 群内接龙（`/接龙`）
-- 📧 **email_notifier** - 检查邮箱新邮件（`/check_email`）
-- 📊 **usage** - 查看命令使用情况（`/usage`）
+- **help** - 查看所有命令帮助 (`/help`)
+- **ping** - 快速状态检查 (`/ping`)
+- **schedule** - 个人课程表管理 (`/今日课表`)
+- **remind** - 灵活的提醒功能 (`/remind`)
+- **todo** - 待办事项管理 (`/todo`)
+- **countdown** - 事件倒计时管理 (`/time`)
+- **eat** - 今天吃什么推荐 (`/android`, `/apple`)
+- **weather** - 城市天气查询 (`/天气 北京`)
+- **latex** - LaTeX 公式渲染 (`/latex E=mc^2`)
+- **pic** - 图片管理 (`/savepic`, `/sendpic`)
+- **relay** - 群内接龙（`/接龙`）
+- **email_notifier** - 检查邮箱新邮件（`/check_email`）
+- **usage** - 查看命令使用情况（`/usage`）
+
 
 ## 🚀 快速开始
 
@@ -88,6 +90,24 @@ docker compose logs -f napcat
 # 5. 扫码登录后测试
 ```
 
+## 🌐 Web 管理界面
+
+全新的现代化 Web 管理面板，让您随时随地管理机器人！
+
+### 启动 Web 服务
+
+```bash
+# 本地开发
+cd web
+python3 -m uvicorn web_api:app --host 127.0.0.1 --port 8000
+
+# 访问
+# 浏览器打开: http://localhost:8000
+```
+
+### 生产部署
+
+详见 [deployment/DEPLOYMENT.md](deployment/DEPLOYMENT.md) 完整部署指南。
 
 ## 🔧 常用命令
 
@@ -111,7 +131,7 @@ cp -r data ~/backup_$(date +%Y%m%d)
 ## 📁 项目结构
 
 ```
-mybot/
+MyBot/
 ├── bot.py                  # NoneBot 入口文件
 ├── pyproject.toml          # 项目配置
 ├── requirements.txt        # Python 依赖
@@ -124,10 +144,24 @@ mybot/
 │   └── plugins/           # 自定义插件目录
 │       ├── help.py
 │       ├── remind.py
+│       ├── eat.py
 │       └── ...
-├── data/                   # 数据持久化目录（不上传 Git）
+├── web/                    # Web 管理界面 (NEW!)
+│   ├── web_api.py         # FastAPI 后端
+│   ├── static/
+│   │   ├── index.html     # 前端页面
+│   │   ├── app.js         # JavaScript 逻辑
+│   │   └── style.css      # 样式表
+│   └── web_server.sh      # 启动脚本
+├── deployment/             # 生产部署配置 (NEW!)
+│   ├── DEPLOYMENT.md      # 部署文档
+│   ├── nginx_bot.conf     # Nginx 配置
+│   ├── mybot-web.service  # Systemd 服务
+│   └── env.web.example    # 环境变量模板
+├── data/                   # 数据持久化目录
 │   ├── reminders_data.json
 │   ├── todo_data.json
+│   ├── eat_data.json
 │   └── ...              
 └── deploy.sh              # 一键部署脚本
 ```

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyBot 管理面板</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-icon">🤖</span>
+                <span class="brand-text">MyBot</span>
+                <span class="brand-subtitle">管理面板</span>
+            </div>
+            <div class="nav-links">
+                <a href="#dashboard" class="nav-link active" data-page="dashboard">
+                    <span>📊</span>
+                    <span>仪表盘</span>
+                </a>
+                <a href="#reminders" class="nav-link" data-page="reminders">
+                    <span>⏰</span>
+                    <span>提醒</span>
+                </a>
+                <a href="#todos" class="nav-link" data-page="todos">
+                    <span>✅</span>
+                    <span>待办</span>
+                </a>
+                <a href="#countdowns" class="nav-link" data-page="countdowns">
+                    <span>⏳</span>
+                    <span>倒计时</span>
+                </a>
+                <a href="#usage" class="nav-link" data-page="usage">
+                    <span>📈</span>
+                    <span>统计</span>
+                </a>
+                <a href="#images" class="nav-link" data-page="images">
+                    <span>🖼️</span>
+                    <span>图片</span>
+                </a>
+                <a href="#eat" class="nav-link" data-page="eat">
+                    <span>🍔</span>
+                    <span>吃什么</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <div class="container">
+            <!--  Dashboard 页面 -->
+            <div id="page-dashboard" class="page active">
+                <div class="page-header">
+                    <h1 class="page-title">📊 仪表盘</h1>
+                    <p class="page-subtitle">快速概览和系统状态</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">⏰</div>
+                        <div class="stat-content">
+                            <div class="stat-label">活跃提醒</div>
+                            <div class="stat-value" id="stat-reminders">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-label">待办事项</div>
+                            <div class="stat-value" id="stat-todos">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-content">
+                            <div class="stat-label">倒计时</div>
+                            <div class="stat-value" id="stat-countdowns">=</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-content">
+                            <div class="stat-label">本周消息</div>
+                            <div class="stat-value" id="stat-messages">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-section">
+                    <h2 class="section-title">系统状态</h2>
+                    <div class="status-grid">
+                        <div class="status-card">
+                            <div class="status-header">
+                                <span class="status-label">CPU 使用率</span>
+                                <span class="status-value" id="cpu-value">-</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="cpu-progress"></div>
+                            </div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-header">
+                                <span class="status-label">内存使用</span>
+                                <span class="status-value" id="memory-value">-</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="memory-progress"></div>
+                            </div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-header">
+                                <span class="status-label">磁盘使用</span>
+                                <span class="status-value" id="disk-value">-</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="disk-progress"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reminders 页面 -->
+            <div id="page-reminders" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">⏰ 提醒管理</h1>
+                        <p class="page-subtitle">查看和管理所有提醒</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openAddReminderModal()">
+                        <span>➕</span> 添加提醒
+                    </button>
+                </div>
+
+                <div class="search-box">
+                    <input type="text" id="reminder-search" placeholder="🔍 搜索提醒..." onkeyup="filterReminders()">
+                </div>
+
+                <div id="reminders-list" class="items-list">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+
+            <!-- Todos 页面 -->
+            <div id="page-todos" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">✅ 待办事项</h1>
+                        <p class="page-subtitle">管理工作和娱乐待办</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openAddTodoModal()">
+                        <span>➕</span> 添加待办
+                    </button>
+                </div>
+
+                <div class="todos-grid">
+                    <div class="todo-column">
+                        <div class="column-header">
+                            <span class="column-icon">💼</span>
+                            <span class="column-title">工作</span>
+                            <span class="column-count" id="work-count">0</span>
+                        </div>
+                        <div id="work-todos" class="todos-list"></div>
+                    </div>
+                    <div class="todo-column">
+                        <div class="column-header">
+                            <span class="column-icon">🎮</span>
+                            <span class="column-title">娱乐</span>
+                            <span class="column-count" id="play-count">0</span>
+                        </div>
+                        <div id="play-todos" class="todos-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Countdowns 页面 -->
+            <div id="page-countdowns" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">⏳ 倒计时</h1>
+                        <p class="page-subtitle">追踪重要事件倒计时</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openAddCountdownModal()">
+                        <span>➕</span> 添加倒计时
+                    </button>
+                </div>
+
+                <div id="countdowns-list" class="countdowns-grid">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+
+            <!-- Usage 页面 -->
+            <div id="page-usage" class="page">
+                <div class="page-header">
+                    <h1 class="page-title">📈 使用统计</h1>
+                    <p class="page-subtitle">数据分析与可视化</p>
+                </div>
+
+                <div class="usage-section">
+                    <div class="chart-card">
+                        <h3 class="chart-title">📊 24小时活跃时段</h3>
+                        <canvas id="hourly-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3 class="chart-title">📆 星期分布</h3>
+                        <canvas id="weekday-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="usage-section">
+                    <div class="chart-card full-width">
+                        <h3 class="chart-title">📅 最近30天趋势</h3>
+                        <canvas id="daily-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Images 页面 -->
+            <div id="page-images" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">🖼️ 图片管理</h1>
+                        <p class="page-subtitle">管理 assets 文件夹中的图片资源</p>
+                    </div>
+                </div>
+
+                <div class="folder-tabs">
+                    <button class="folder-tab active" data-folder="pics" onclick="switchImageFolder('pics')">
+                        📁 默认表情
+                    </button>
+                    <button class="folder-tab" data-folder="food_images" onclick="switchImageFolder('food_images')">
+                        🍔 美食图片
+                    </button>
+                    <button class="folder-tab" data-folder="latex" onclick="switchImageFolder('latex')">
+                        🔬 LaTeX 公式
+                    </button>
+                </div>
+
+                <div class="images-toolbar">
+                    <div class="images-count">
+                        共 <span id="current-folder-count">0</span> 张图片
+                    </div>
+                    <div class="images-actions">
+                        <button class="btn btn-secondary btn-small" onclick="refreshImages()">
+                            🔄 刷新
+                        </button>
+                    </div>
+                </div>
+
+                <div id="images-grid" class="images-grid">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+
+            <!-- Eat 页面 -->
+            <div id="page-eat" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">🍔 吃什么管理</h1>
+                        <p class="page-subtitle">管理上学和假期的美食列表</p>
+                    </div>
+                </div>
+
+                <div class="eat-grid">
+                    <div class="eat-column">
+                        <div class="column-header">
+                            <span class="column-icon">📱</span>
+                            <span class="column-title">上学吃什么 (Android)</span>
+                            <span class="column-count" id="android-count">0</span>
+                        </div>
+                        <div class="eat-actions">
+                            <input type="text" id="android-input" placeholder="输入食物名称..." class="eat-input">
+                            <button class="btn btn-primary btn-small" onclick="addFood('android')">
+                                ➕ 添加
+                            </button>
+                        </div>
+                        <div id="android-list" class="eat-list"></div>
+                    </div>
+
+                    <div class="eat-column">
+                        <div class="column-header">
+                            <span class="column-icon">🍎</span>
+                            <span class="column-title">假期吃什么 (Apple)</span>
+                            <span class="column-count" id="apple-count">0</span>
+                        </div>
+                        <div class="eat-actions">
+                            <input type="text" id="apple-input" placeholder="输入食物名称..." class="eat-input">
+                            <button class="btn btn-primary btn-small" onclick="addFood('apple')">
+                                ➕ 添加
+                            </button>
+                        </div>
+                        <div id="apple-list" class="eat-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 添加提醒模态框 -->
+    <div id="add-reminder-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>添加提醒</h2>
+                <button class="modal-close" onclick="closeModal('add-reminder-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-note">⚠️ 注意：通过 Web 界面添加的提醒不会自动注册到调度器，需重启机器人才能生效。</p>
+                <div class="form-group">
+                    <label>用户 ID</label>
+                    <input type="text" id="reminder-user-id" placeholder="请输入用户 ID" required>
+                </div>
+                <div class="form-group">
+                    <label>事件名称</label>
+                    <input type="text" id="reminder-event" placeholder="例如：吃药" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>小时 (0-23)</label>
+                        <input type="number" id="reminder-hour" min="0" max="23" placeholder="14" required>
+                    </div>
+                    <div class="form-group">
+                        <label>分钟 (0-59)</label>
+                        <input type="number" id="reminder-minute" min="0" max="59" placeholder="30" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>会话 ID (群号或用户号)</label>
+                    <input type="text" id="reminder-session-id" placeholder="请输入会话 ID" required>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="reminder-is-group">
+                        <span>是否为群聊</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="reminder-is-daily">
+                        <span>每日重复</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-reminder-modal')">取消</button>
+                <button class="btn btn-primary" onclick="submitReminder()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加待办模态框 -->
+    <div id="add-todo-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>添加待办事项</h2>
+                <button class="modal-close" onclick="closeModal('add-todo-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>用户 ID</label>
+                    <input type="text" id="todo-user-id" placeholder="请输入用户 ID" required>
+                </div>
+                <div class="form-group">
+                    <label>待办内容</label>
+                    <input type="text" id="todo-task" placeholder="例如：完成项目报告" required>
+                </div>
+                <div class="form-group">
+                    <label>分类</label>
+                    <select id="todo-category">
+                        <option value="work">💼 工作</option>
+                        <option value="play">🎮 娱乐</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-todo-modal')">取消</button>
+                <button class="btn btn-primary" onclick="submitTodo()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加倒计时模态框 -->
+    <div id="add-countdown-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>添加倒计时</h2>
+                <button class="modal-close" onclick="closeModal('add-countdown-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>用户 ID</label>
+                    <input type="text" id="countdown-user-id" placeholder="请输入用户 ID" required>
+                </div>
+                <div class="form-group">
+                    <label>事件名称</label>
+                    <input type="text" id="countdown-event" placeholder="例如：考试" required>
+                </div>
+                <div class="form-group">
+                    <label>截止时间</label>
+                    <input type="datetime-local" id="countdown-time" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('add-countdown-modal')">取消</button>
+                <button class="btn btn-primary" onclick="submitCountdown()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片预览模态框 -->
+    <div id="image-preview-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 id="preview-image-name">图片预览</h2>
+                <button class="modal-close" onclick="closeModal('image-preview-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <img id="preview-image" src="" alt="图片预览" style="width: 100%; border-radius: 12px;">
+                <div style="margin-top: 16px; color: var(--text-secondary);">
+                    <div>文件大小: <span id="preview-image-size">-</span></div>
+                    <div>修改时间: <span id="preview-image-modified">-</span></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="delete-preview-image-btn">
+                    🗑️ 删除图片
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal('image-preview-modal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="toast-container"></div>
+
+    <!-- 引入 Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- 引入主 JS -->
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,33 @@
+[Unit]
+Description=MyBot Web Management Interface
+Documentation=https://github.com/aununo/MyBot
+After=network.target
+
+[Service]
+Type=simple
+User=aununo
+Group=aununo
+WorkingDirectory=/home/aununo/MyBot/web
+
+# 环境变量 - 请修改为您的实际配置
+Environment="PATH=/usr/bin:/usr/local/bin"
+Environment="WEB_ADMIN_USERNAME=admin"
+Environment="WEB_ADMIN_PASSWORD=your_secure_password_here"
+
+# 启动命令
+ExecStart=/usr/bin/python3 -m uvicorn web_api:app --host 127.0.0.1 --port 8000 --workers 2
+
+# 自动重启配置
+Restart=always
+RestartSec=10
+
+# 资源限制
+LimitNOFILE=65536
+
+# 日志配置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mybot-web
+
+[Install]
+WantedBy=multi-user.target
