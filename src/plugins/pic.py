@@ -291,7 +291,12 @@ async def randpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
 
 
 # --- 7. 自动回复表情（关键词触发） ---
-autopic = on_message(priority=10, block=False)
+# 洗牌相关状态
+autopic_shuffled_lists = {}  # 存储每个匹配文件集合的洗牌列表
+autopic_original_snapshots = {}  # 记录原始匹配文件集合的快照
+autopic_last_sent = {}  # 记录每个匹配文件集合上次发送的文件
+
+autopic = on_message(priority=99, block=False)
 
 @autopic.handle()
 async def autopic_handle(bot: Bot, event: MessageEvent):
@@ -304,7 +309,8 @@ async def autopic_handle(bot: Bot, event: MessageEvent):
     if not msg_text:
         return
     
-    # 如果消息以命令前缀开头，忽略（避免与命令冲突）
+    # 如果消息以命令前缀开头，立即跳过（避免与命令冲突）
+    # 必须在处理任何逻辑之前检查，确保命令能正常处理
     if msg_text.startswith("/") or msg_text.startswith("！") or msg_text.startswith("!"):
         return
     
@@ -333,10 +339,8 @@ async def autopic_handle(bot: Bot, event: MessageEvent):
             matched_files.append(filename)
             continue
         
-        # 将文件名按常见分隔符（点号、下划线、连字符）分割成多个部分
-        name_parts = re.split(r'[._-]', name_without_ext)
-        # 过滤掉空字符串
-        name_parts = [part for part in name_parts if part]
+        name_parts = re.split(r'[._-]', name_without_ext) # 将文件名按常见分隔符（点号、下划线、连字符）分割成多个部分
+        name_parts = [part for part in name_parts if part] # 过滤掉空字符串
         
         # 检查2：消息中的任何关键词必须完全匹配文件名分割后的某个部分
         matched = False
@@ -352,10 +356,45 @@ async def autopic_handle(bot: Bot, event: MessageEvent):
     if not matched_files:
         return
     
-    # 如果多个文件匹配，随机选择一个
+    # 使用洗牌逻辑避免重复抽取
+    # 使用 frozenset 作为 key，因为集合内容相同但顺序不同时应该使用同一个洗牌列表
+    matched_files_set = frozenset(matched_files)
+    set_key = matched_files_set
+    
+    # 判断是否需要重新洗牌：
+    # 1. 洗牌列表为空（抽完了）
+    # 2. 匹配的文件集合被修改了（文件被添加/删除，导致匹配结果变化）
+    need_reshuffle = False
+    
+    if not autopic_shuffled_lists.get(set_key):
+        # 情况1：首次使用或抽完了
+        need_reshuffle = True
+    elif autopic_original_snapshots.get(set_key) != matched_files_set:
+        # 情况2：匹配的文件集合被修改了（和快照不一致）
+        need_reshuffle = True
+        logger.debug(f"检测到匹配文件集合被修改，重新洗牌")
+    
+    if need_reshuffle:
+        autopic_shuffled_lists[set_key] = list(matched_files_set)
+        random.shuffle(autopic_shuffled_lists[set_key])
+        autopic_original_snapshots[set_key] = matched_files_set
+        
+        # 避免连续发送相同文件：如果上次发送的文件在列表末尾，就把它换到其他位置
+        if len(autopic_shuffled_lists[set_key]) > 1 and set_key in autopic_last_sent:
+            last_file = autopic_last_sent[set_key]
+            if autopic_shuffled_lists[set_key][-1] == last_file:
+                # 把末尾的文件和第一个文件交换位置
+                autopic_shuffled_lists[set_key][0], autopic_shuffled_lists[set_key][-1] = \
+                    autopic_shuffled_lists[set_key][-1], autopic_shuffled_lists[set_key][0]
+                logger.debug(f"避免连续发送 {last_file}，已重新排列")
+    
+    # 从洗牌列表中取出一个文件
+    selected_file = autopic_shuffled_lists[set_key].pop()
+    autopic_last_sent[set_key] = selected_file  # 记录本次发送的文件
+    
     if len(matched_files) > 1:
-        logger.debug(f"关键词 '{msg_text}' 匹配到 {len(matched_files)} 个文件: {matched_files}")
-    selected_file = random.choice(matched_files)
+        logger.debug(f"关键词 '{msg_text}' 匹配到 {len(matched_files)} 个文件，已选择: {selected_file}")
+    
     file_path = default_pics_dir / selected_file
     
     try:
