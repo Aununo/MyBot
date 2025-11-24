@@ -14,3 +14,4 @@ web/__pycache__
 
 .env
 
+web/frontend/node_modules
