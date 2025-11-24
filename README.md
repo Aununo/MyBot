@@ -17,13 +17,11 @@
 
 ## ✨ 功能特性
 
-- **开箱即用** - Docker Compose 一键部署，无需复杂配置
 - **丰富插件** - 若干内置插件，覆盖学习、生活、娱乐
 - **数据持久化** - 自动保存数据，重启不丢失
 - **Web 管理界面** - 现代化的可视化管理面板，支持远程管理
 - **易于扩展** - 模块化设计，轻松添加自定义插件
 - **状态监控** - 实时查看 CPU、内存、运行状态
-- **容器化部署** - Docker 隔离环境，稳定可靠
 
 ## 📦 插件列表
 
@@ -53,7 +51,6 @@
 ### 前置要求
 
 - Git
-- Docker & Docker Compose
 - Linux/MacOS 或 Windows WSL2
 
 ### 一键部署
@@ -72,22 +69,63 @@ chmod +x deploy.sh
 
 ### 手动部署
 
+- 安装 Napcat
+
 ```bash
-# 1. 克隆项目
-git clone https://github.com/yourusername/MyBot.git
-cd MyBot
+curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && chmod +x napcat.sh
 
-# 2. 复制并编辑环境变量
-cp env.example .env
-nano .env  # 修改配置（可选）
+bash napcat.sh # 按照指引安装即可
+```
 
-# 3. 启动服务
-NAPCAT_UID=$(id -u) NAPCAT_GID=$(id -g) docker compose up --build -d
+- 安装 Nonebot
 
-# 4. 查看日志获取登录二维码
-docker compose logs -f napcat
+```bash
+python3 -m venv .venv
+source .venv/bin/activate # 新建虚拟环境
 
-# 5. 扫码登录后测试
+pip install nb-cli
+nb create 
+# 按照指引完成配置
+nb run
+```
+
+详情请见 [nonebot 官方文档](https://nonebot.dev/docs/quick-start)
+
+- 通信
+
+修改 nonebot 的 `.env.prod`：
+
+```
+PORT = 如果 8080 端口被占用，根据你的需要更改
+ONEBOT_ACCESS_TOKEN='temp123456'
+```
+
+此处为Napcat代理相关配置：
+
+```json
+{
+  "network": {
+    "httpServers": [],
+    "httpClients": [],
+    "websocketServers": [],
+    "websocketClients": [
+      {
+        "name": "nonebot",
+        "enable": true,
+        "url": "ws://127.0.0.1:8080/onebot/v11/ws", // 与 nonebot 的 PORT 一致
+        "messagePostFormat": "array",
+        "reportSelfMessage": true,
+        "reconnectInterval": 5000,
+        "token": "temp123456", // 与 nonebot 的 ONEBOT_ACCESS_TOKEN 一致
+        "debug": false,
+        "heartInterval": 30000
+      }
+    ]
+  },
+  "musicSignUrl": "",
+  "enableLocalFile2Url": false,
+  "parseMultMsg": true
+}
 ```
 
 ## 🌐 Web 管理界面
