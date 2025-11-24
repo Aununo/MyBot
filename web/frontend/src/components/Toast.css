@@ -1,0 +1,62 @@
+/* Toast.css */
+.toast-container {
+    position: fixed;
+    top: var(--spacing-xl);
+    right: var(--spacing-xl);
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    box-shadow: var(--shadow-lg);
+    min-width: 250px;
+    max-width: 400px;
+    animation: slideInRight 0.3s ease;
+    pointer-events: auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.toast::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+}
+
+.toast.success::before {
+    background: var(--accent-green);
+}
+
+.toast.error::before {
+    background: var(--accent-pink);
+}
+
+.toast.warning::before {
+    background: var(--accent-orange);
+}
+
+.toast.info::before {
+    background: var(--accent-blue);
+}
+
+@media (max-width: 768px) {
+    .toast-container {
+        top: var(--spacing-md);
+        right: var(--spacing-md);
+        left: var(--spacing-md);
+    }
+
+    .toast {
+        max-width: 100%;
+    }
+}

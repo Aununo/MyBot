@@ -17,6 +17,7 @@
 
 ## ✨ 功能特性
 
+- **Docker 部署** - 一键部署，无需手动配置
 - **丰富插件** - 若干内置插件，覆盖学习、生活、娱乐
 - **数据持久化** - 自动保存数据，重启不丢失
 - **Web 管理界面** - 现代化的可视化管理面板，支持远程管理
@@ -132,20 +133,7 @@ ONEBOT_ACCESS_TOKEN='temp123456'
 
 全新的现代化 Web 管理面板，让您随时随地管理机器人！
 
-### 启动 Web 服务
-
-```bash
-# 本地开发
-cd web
-python3 -m uvicorn web_api:app --host 127.0.0.1 --port 8000
-
-# 访问
-# 浏览器打开: http://localhost:8000
-```
-
-### 生产部署
-
-详见 [deployment/DEPLOYMENT.md](deployment/DEPLOYMENT.md) 完整部署指南。
+详见 [deployment/DEPLOYMENT.md](deployment/DEPLOYMENT.md) 完整测试与部署指南。
 
 ## 🔧 常用命令
 

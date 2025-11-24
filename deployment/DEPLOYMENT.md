@@ -1,267 +1,377 @@
 # MyBot 生产环境部署指南
 
-## 📋 前置要求
+本文档提供 MyBot React 前端 + FastAPI 后端的单服务器部署方案。
 
-- Ubuntu/Debian 服务器
-- 域名 DNS 已指向服务器 IP
-- sudo 权限
-- Python 3.8+
+---
 
-## 🚀 部署步骤
+## 系统要求
 
-### 1. 服务器准备
+- **OS**: Ubuntu 20.04+ / Debian 10+
+- **Python**: 3.8+
+- **Node.js**: 16.x+
+- **Nginx**: 1.18+（可选但推荐）
+
+---
+
+## 部署步骤
+
+### 1. 准备环境
 
 ```bash
 # 更新系统
 sudo apt update && sudo apt upgrade -y
 
-# 安装必需软件
-sudo apt install -y nginx python3-pip python3-venv certbot python3-certbot-nginx git
+# 安装必要软件
+sudo apt install -y python3 python3-pip python3-venv nginx git
 
-# 安装 Python 依赖
-sudo pip3 install fastapi uvicorn[standard] python-multipart psutil
+# 安装 Node.js 18.x
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
 ```
 
 ### 2. 克隆项目
 
 ```bash
-# 克隆到服务器
-cd /home/aununo
-git clone https://github.com/your_username/MyBot.git
+cd /var/www
+sudo git clone https://github.com/yourusername/MyBot.git
+sudo chown -R $USER:$USER MyBot
 cd MyBot
-
-# 创建数据目录
-mkdir -p data
-chmod 755 data
 ```
 
-### 3. 配置环境变量
+### 3. 配置后端
 
 ```bash
-# 复制环境变量模板
-cp deployment/env.web.example .env.web
+# 创建 Python 虚拟环境
+python3 -m venv .venv
+source .venv/bin/activate
 
-# 编辑配置，设置强密码
-nano .env.web
+# 安装依赖
+pip install -r requirements.txt
 
-# 内容示例:
-# WEB_ADMIN_USERNAME=your_admin_name
-# WEB_ADMIN_PASSWORD=YourVerySecurePassword123!@#
-
-# 加载环境变量到 systemd 服务
-# (已在 mybot-web.service 中配置)
+# 配置环境变量
+cp env.example .env
+nano .env
 ```
 
-### 4. 配置 Systemd 服务
+编辑 `.env` 设置：
+```bash
+WEB_ADMIN_USERNAME=admin
+WEB_ADMIN_PASSWORD=your_secure_password
+QQ_BOT_ID=your_bot_qq_number
+NAPCAT_HTTP_URL=http://localhost:3000
+NAPCAT_WS_URL=ws://localhost:3001
+```
+
+### 4. 构建前端
 
 ```bash
-# 复制服务文件
-sudo cp deployment/mybot-web.service /etc/systemd/system/
+cd /var/www/MyBot/web/frontend
 
-# **重要**: 编辑服务文件，修改环境变量
-sudo nano /etc/systemd/system/mybot-web.service
-# 修改:
-# Environment="WEB_ADMIN_USERNAME=你的用户名"
-# Environment="WEB_ADMIN_PASSWORD=你的强密码"
+# 安装依赖
+npm install
 
-# 重新加载 systemd
-sudo systemctl daemon-reload
+# 生产构建
+npm run build
 
-# 启动服务
-sudo systemctl start mybot-web
-
-# 设置开机自启
-sudo systemctl enable mybot-web
-
-# 检查状态
-sudo systemctl status mybot-web
+# 验证构建产物
+ls -lh dist/
 ```
 
-### 5. DNS 配置
+### 5. 配置 Nginx
 
-在您的 DNS 提供商添加 A 记录:
-
-```
-类型: A
-主机: bot
-值: 您的服务器IP
-TTL: 自动/300
-```
-
-等待 DNS 传播 (通常 5-10 分钟)
-
-### 6. 配置 Nginx
+创建配置文件：
 
 ```bash
-# 复制 Nginx 配置
-sudo cp deployment/nginx_bot.conf /etc/nginx/sites-available/bot.aununo.xyz
+sudo nano /etc/nginx/sites-available/mybot
+```
 
-# 创建软链接
-sudo ln -s /etc/nginx/sites-available/bot.aununo.xyz /etc/nginx/sites-enabled/
+写入：
 
-# 测试配置
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # 日志
+    access_log /var/log/nginx/mybot_access.log;
+    error_log /var/log/nginx/mybot_error.log;
+
+    # 前端静态文件
+    root /var/www/MyBot/web/frontend/dist;
+    index index.html;
+
+    # Gzip 压缩
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+    # SPA 路由
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 静态资源缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # API 代理
+    location /api {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # 健康检查
+    location /health {
+        proxy_pass http://127.0.0.1:8000;
+        access_log off;
+    }
+}
+```
+
+启用站点：
+
+```bash
+sudo ln -s /etc/nginx/sites-available/mybot /etc/nginx/sites-enabled/
 sudo nginx -t
-
-# 如果测试通过，重启 Nginx
 sudo systemctl restart nginx
 ```
 
-### 7. 申请SSL证书 (Let's Encrypt)
+### 6. 配置后端服务
+
+创建 systemd 服务：
 
 ```bash
-# 使用 Certbot 自动申请并配置
-sudo certbot --nginx -d bot.aununo.xyz
+sudo nano /etc/systemd/system/mybot-web.service
+```
 
-# 按提示操作:
-# 1. 输入邮箱
-# 2. 同意服务条款
-#  3. 选择是否重定向HTTP到HTTPS (建议选择是)
+写入：
 
-# 测试自动续期
-sudo certbot renew --dry-run
+```ini
+[Unit]
+Description=MyBot Web API Service
+After=network.target
 
-# Certbot 会自动添加 cron job 来续期证书
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/MyBot/web
+Environment="PATH=/var/www/MyBot/.venv/bin"
+EnvironmentFile=/var/www/MyBot/.env
+ExecStart=/var/www/MyBot/.venv/bin/uvicorn web_api:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+启动服务：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start mybot-web
+sudo systemctl enable mybot-web
+sudo systemctl status mybot-web
+```
+
+### 7. 配置 HTTPS（可选但推荐）
+
+```bash
+# 安装 Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# 获取证书
+sudo certbot --nginx -d your-domain.com
+
+# 自动续期
+sudo systemctl status certbot.timer
 ```
 
 ### 8. 验证部署
 
-访问 `https://bot.aununo.xyz`
-
-应该看到:
-1. ✅ 浏览器显示安全锁图标 (HTTPS)
-2. ✅ 弹出登录框要求输入用户名密码
-3. ✅ 登录后显示管理界面
-
-## 🔧 故障排查
-
-### 服务无法启动
-
 ```bash
-# 查看服务日志
-sudo journalctl -u mybot-web -f
+# 检查后端
+curl http://localhost:8000/health
 
-# 查看详细错误
-sudo journalctl -u mybot-web --since "10 minutes ago"
+# 检查前端
+curl http://localhost/
 
-# 手动测试
-cd /home/aununo/MyBot/web
-python3 -m uvicorn web_api:app --host 127.0.0.1 --port 8000
+# 访问
+# http://your-domain.com
 ```
 
-### Nginx 错误
+---
+
+## 安全配置
+
+### 1. 修改默认密码
 
 ```bash
-# 查看错误日志
-sudo tail -f /var/log/nginx/error.log
-sudo tail -f /var/log/nginx/bot.aununo.xyz.error.log
-
-# 测试配置文件
-sudo nginx -t
-
-# 重启 Nginx
-sudo systemctl restart nginx
+nano .env
+# 设置强密码
+WEB_ADMIN_USERNAME=your_username
+WEB_ADMIN_PASSWORD=your_strong_password
 ```
 
-### SSL 证书问题
+### 2. 配置防火墙
 
 ```bash
-# 查看证书状态
-sudo certbot certificates
-
-# 手动续期
-sudo certbot renew
-
-# 如果失败，检查防火墙
-sudo ufw status
+sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
+sudo ufw enable
 ```
 
-### 无法访问
+### 3. 禁用 API 文档（生产环境）
 
-```bash
-# 检查服务是否运行
-sudo systemctl status mybot-web
-sudo systemctl status nginx
-
-# 检查端口监听
-sudo netstat -tlnp | grep 8000
-sudo netstat -tlnp | grep 80
-
-# 检查防火墙
-sudo ufw status
-sudo ufw allow 'Nginx Full'
+```python
+# web/web_api.py
+app = FastAPI(
+    docs_url=None if os.getenv("ENVIRONMENT") == "production" else "/docs",
+    redoc_url=None if os.getenv("ENVIRONMENT") == "production" else "/redoc",
+)
 ```
 
-## 🔐 安全建议
+---
 
-1. **强密码**: 使用至少 16 位的强密码
-2. **定期更换**: 每 3-6 个月更换密码
-3. **防火墙**: 只开放必要端口 (80, 443)
-4. **日志监控**: 定期检查访问日志
-5. **系统更新**: 定期更新系统和依赖
+## 维护
+
+### 健康检查
 
 ```bash
-# 定期更新
-sudo apt update && sudo apt upgrade -y
-
-# 查看访问日志
-sudo tail -f /var/log/nginx/bot.aununo.xyz.access.log
-```
-
-## 📊 日常维护
-
-### 重启服务
-
-```bash
-sudo systemctl restart mybot-web
+curl http://localhost:8000/health
+# 应返回: {"status":"healthy","timestamp":"..."}
 ```
 
 ### 查看日志
 
 ```bash
-# Web 服务日志
+# Nginx 日志
+sudo tail -f /var/log/nginx/mybot_access.log
+sudo tail -f /var/log/nginx/mybot_error.log
+
+# 后端日志
 sudo journalctl -u mybot-web -f
-
-# Nginx 访问日志
-sudo tail -f /var/log/nginx/bot.aununo.xyz.access.log
-
-# Nginx 错误日志
-sudo tail -f /var/log/nginx/bot.aununo.xyz.error.log
 ```
 
-### 更新代码
+### 更新部署
 
+**更新前端：**
 ```bash
-cd /home/aununo/MyBot
-git pull origin main
+cd /var/www/MyBot/web/frontend
+git pull
+npm install
+npm run build
+sudo systemctl reload nginx
+```
+
+**更新后端：**
+```bash
+cd /var/www/MyBot
+git pull
+source .venv/bin/activate
+pip install -r requirements.txt
 sudo systemctl restart mybot-web
 ```
 
-## 🎯 可选增强
+---
 
-### IP 白名单
+## 故障排查
 
-在 Nginx 配置中添加:
+### 前端显示空白
 
-```nginx
-location / {
-    allow 你的IP;
-    deny all;
-    proxy_pass http://127.0.0.1:8000;
-}
+```bash
+# 检查构建产物
+ls -la /var/www/MyBot/web/frontend/dist/
+
+# 检查 Nginx 配置
+sudo nginx -t
 ```
 
-### 监控告警
+### API 请求失败
 
-使用 UptimeRobot 或类似服务监控:
-- URL: https://bot.aununo.xyz/health
-- 间隔: 5分钟
-- 告警: 邮件/Telegram
+```bash
+# 检查后端状态
+sudo systemctl status mybot-web
 
-## 📞 支持
+# 查看详细日志
+sudo journalctl -u mybot-web -n 100
+```
 
-如遇到问题，请检查:
-1. 服务日志: `journalctl -u mybot-web`
-2. Nginx日志: `/var/log/nginx/`
-3. 系统日志: `dmesg`
+### 502 错误
+
+```bash
+# 后端未运行
+sudo systemctl start mybot-web
+
+# 测试后端
+curl http://localhost:8000/health
+```
+
+---
+
+## 性能优化
+
+### 1. Gzip 压缩
+
+Nginx 配置中已启用，可调整级别：
+```nginx
+gzip_comp_level 6;  # 1-9
+```
+
+### 2. CDN 加速
+
+将 `dist/assets/` 上传到 CDN，修改 HTML 引用。
+
+### 3. 后端 workers
+
+根据 CPU 核心数调整：
+```bash
+# systemd service
+ExecStart=... --workers 4
+```
+
+---
+
+## 备份
+
+```bash
+#!/bin/bash
+# 每日备份脚本
+BACKUP_DIR="/var/backups/mybot"
+DATE=$(date +%Y%m%d)
+
+# 备份数据
+tar -czf "$BACKUP_DIR/data_$DATE.tar.gz" /var/www/MyBot/data/
+
+# 备份配置
+tar -czf "$BACKUP_DIR/config_$DATE.tar.gz" /var/www/MyBot/.env
+
+# 保留30天
+find "$BACKUP_DIR" -name "*.tar.gz" -mtime +30 -delete
+```
+
+添加到 crontab：
+```bash
+0 2 * * * /usr/local/bin/mybot-backup.sh
+```
+
+---
+
+## 总结
+
+部署完成后，您应该有：
+
+- ✅ Nginx 服务前端静态文件
+- ✅ FastAPI 后端在 8000 端口
+- ✅ Systemd 自动重启服务
+- ✅ HTTPS 加密（如果配置）
+- ✅ 定期备份机制
+
+访问 `https://your-domain.com` 开始使用！
+
+如有问题，请查看故障排查章节或提交 Issue。

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi import FastAPI, HTTPException, status, Depends, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -488,16 +488,52 @@ async def get_image(folder: str, filename: str):
     return FileResponse(file_path)
 
 @app.post("/api/images/{folder}/upload", status_code=status.HTTP_201_CREATED)
-async def upload_image(folder: str, file: Any):
+async def upload_image(folder: str, file: UploadFile = File(...)):
     """上传图片到指定文件夹"""
-    from fastapi import UploadFile, File
     
     if folder not in IMAGE_FOLDERS:
         raise HTTPException(status_code=404, detail="文件夹不存在")
     
-    # 这个端点需要 multipart/form-data
-    # 实际使用需要配合 UploadFile
-    raise HTTPException(status_code=501, detail="上传功能正在开发中")
+    # 检查文件扩展名
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"不支持的文件格式。允许的格式: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+    
+    # 保存文件
+    folder_path = IMAGE_FOLDERS[folder]
+    file_path = folder_path / file.filename
+    
+    # 如果文件已存在，添加序号
+    if file_path.exists():
+        base_name = Path(file.filename).stem
+        counter = 1
+        while file_path.exists():
+            new_filename = f"{base_name}_{counter}{file_ext}"
+            file_path = folder_path / new_filename
+            counter += 1
+    
+    try:
+        # 读取并保存文件
+        content = await file.read()
+        with open(file_path, 'wb') as f:
+            f.write(content)
+        
+        # 返回文件信息
+        stat = file_path.stat()
+        return {
+            "message": "上传成功",
+            "file": {
+                "name": file_path.name,
+                "size": stat.st_size,
+                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "url": f"/api/images/{folder}/{file_path.name}"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
 @app.delete("/api/images/{folder}/{filename}")
 async def delete_image(folder: str, filename: str):
