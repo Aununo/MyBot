@@ -1,12 +1,14 @@
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent
+from nonebot.params import CommandArg
+from nonebot.adapters.onebot.v11 import Message
 
 help_cmd = on_command("help", aliases={"帮助"}, priority=1, block=True)
 
-HELP_TEXT = """====== 机器人指令帮助 ======
-
-🍔【今天吃啥插件】
-管理 android 和 apple 两个独立的食物列表。将指令中的 `android` 替换为 `apple` 即可操作 apple 列表。
+# 帮助信息字典，每个插件有独立的详细说明
+HELP_DETAILS = {
+    "android": """🍔【今天吃啥插件 - android】
+管理 android 独立的食物列表。
 - /android
   » 随机推荐一个 android 列表中的食物。
 - /android list
@@ -14,9 +16,20 @@ HELP_TEXT = """====== 机器人指令帮助 ======
 - /android add <食物名>
   » 向 android 列表中添加一个新食物。
 - /android del <食物名>
-  » 从 android 列表中删除一个食物。
-
-⏰【提醒插件】
+  » 从 android 列表中删除一个食物。""",
+    
+    "apple": """🍎【今天吃啥插件 - apple】
+管理 apple 独立的食物列表。
+- /apple
+  » 随机推荐一个 apple 列表中的食物。
+- /apple list
+  » 查看 apple 列表中的所有食物。
+- /apple add <食物名>
+  » 向 apple 列表中添加一个新食物。
+- /apple del <食物名>
+  » 从 apple 列表中删除一个食物。""",
+    
+    "remind": """⏰【提醒插件】
 一个灵活的提醒工具，可用于任何事件。
 - /remind <事件> <时间> [日期] [--everyday | --everyNdays | 周几]
   » 设置提醒。支持指定未来日期，--everyday 每日重复，--everyNdays 每隔N天重复，周几重复。
@@ -40,9 +53,9 @@ HELP_TEXT = """====== 机器人指令帮助 ======
   » 查看你当前设置的所有提醒。
 - /cancelremind <事件> (别名: /取消提醒)
   » 取消一个指定的提醒。
-  » 例: /cancelremind 开会
-
-📋【待办事项插件】
+  » 例: /cancelremind 开会""",
+    
+    "todo": """📋【待办事项插件】
 管理你的个人待办事项列表，支持工作(work)和娱乐(play)分类。
 - /todo work add <内容>
   » 添加一个工作待办事项。
@@ -61,9 +74,9 @@ HELP_TEXT = """====== 机器人指令帮助 ======
 - /todo work clear
   » 清除已完成的工作事项。
 - /todo play clear
-  » 清除已完成的娱乐事项。
-
-⏰【倒计时插件】
+  » 清除已完成的娱乐事项。""",
+    
+    "time": """⏰【倒计时插件】
 管理你的重要事件倒计时，随时查看距离事件还有多久。
 - /time add <事件名> <截止时间>
   » 添加一个倒计时事件。
@@ -76,15 +89,15 @@ HELP_TEXT = """====== 机器人指令帮助 ======
   » 查看所有倒计时事件。
 - /time del <事件名>
   » 删除一个倒计时事件。
-  » 例: /time del 考试
-
-🌦️【天气查询插件】
+  » 例: /time del 考试""",
+    
+    "weather": """🌦️【天气查询插件】
 查询指定城市的实时天气信息。
 - /weather <城市名> (别名: /天气)
   » 获取该城市的天气信息。
-  » 例: /weather 北京
-
-📅【我的课表插件】
+  » 例: /weather 北京""",
+    
+    "课表": """📅【我的课表插件】
 动态管理和查询你的个人课程表。
 查询课表:
 - /课表 <星期几>
@@ -101,9 +114,9 @@ HELP_TEXT = """====== 机器人指令帮助 ======
 - /清空课表
   » 清空所有课程。
 - /设置开学日期 <日期>
-  » 设置开学日期。例: /设置开学日期 2025-09-01
-
-🖼️【图片管理插件】
+  » 设置开学日期。例: /设置开学日期 2025-09-01""",
+    
+    "pic": """🖼️【图片管理插件】
 说明：大部分指令支持 --eat 参数来操作"食物"图库，不带参数则操作"默认"图库。
 - /savepic [--eat] <文件名>
   » (需回复一张图片) 保存图片。
@@ -116,9 +129,9 @@ HELP_TEXT = """====== 机器人指令帮助 ======
 - /listpic [--eat] [关键词]
   » 列出指定图库中的图片。
 - /randpic [--eat] [关键词]
-  » 随机发送一张图片 (别名: /随机表情)。
-
-📝【接龙插件】
+  » 随机发送一张图片 (别名: /随机表情)。""",
+    
+    "接龙": """📝【接龙插件】
 在群聊中创建和管理接龙活动，自动记录参与人员并编号。
 - /接龙 <事件名>
   » 创建新的接龙或参与现有接龙。
@@ -129,14 +142,14 @@ HELP_TEXT = """====== 机器人指令帮助 ======
 - /接龙 查看 (别名: /接龙 view/list/显示)
   » 查看当前群的接龙列表。
 - /接龙 删除 (别名: /接龙 del/delete/clear)
-  » 删除当前群的接龙任务。
-
-📧【邮件通知插件】
+  » 删除当前群的接龙任务。""",
+    
+    "checkmail": """📧【邮件通知插件】
 检查当前邮件有没有新邮件。
 - /checkmail
-  » 检查是否有新邮件。
-
-📊【使用统计插件】
+  » 检查是否有新邮件。""",
+    
+    "usage": """📊【使用统计插件】
 统计 Bot 命令调用的活跃时间段和次数，自动记录所有命令使用情况。
 - /usage (别名: /使用统计 /统计)
   » 显示总体统计信息（总命令数、总调用次数、最近 7 天调用）。
@@ -145,23 +158,64 @@ HELP_TEXT = """====== 机器人指令帮助 ======
 - /usage day (别名: /usage 天 /usage 日期)
   » 按日期统计，显示最近 30 天的调用情况。
 - /usage weekday (别名: /usage 星期)
-  » 按星期统计，显示周一到周日的使用分布。
-
-
-✨【通用指令】
-- /help
-  » 显示本帮助信息。(别名: /帮助)
+  » 按星期统计，显示周一到周日的使用分布。""",
+    
+    "ping": """✨【通用指令 - PING】
 - /ping
-  » 检测机器人响应时间。
+  » 检测机器人响应时间。""",
+    
+    "latex": """✨【通用指令 - LaTeX】
 - /latex <LaTeX代码>
-  » 渲染 LaTeX 公式为图片。 
+  » 渲染 LaTeX 公式为图片。""",
+    
+    "status": """✨【通用指令 - 状态】
 - /status
-  » 获取服务器状态。(别名: 发送"戳一戳")
+  » 获取服务器状态。(别名: 发送"戳一戳")"""
+}
+
+# 简短的命令列表
+COMMAND_LIST = """====== 机器人指令列表 ======
+
+💡 提示：使用 /help <命令名> 查看具体命令的详细用法
+
+📋 可用命令：
+- /android, /apple       - 今天吃啥
+- /remind                - 提醒功能
+- /todo                  - 待办事项
+- /time                  - 倒计时
+- /weather               - 天气查询
+- /课表                  - 课程表管理
+- /pic                   - 图片管理
+- /接龙                  - 接龙活动
+- /checkmail             - 邮件检查
+- /usage                 - 使用统计
+- /ping                  - 响应测试
+- /latex                 - LaTeX 渲染
+- /status                - 服务器状态
+
+例如：/help apple. 使用 /help <命令名> 查看详细帮助信息！
 """
 
 @help_cmd.handle()
-async def send_help_message(event: MessageEvent):
+async def send_help_message(event: MessageEvent, args: Message = CommandArg()):
     """
-    当用户发送 /help 或 /帮助 时，发送上面定义的帮助文本。
+    当用户发送 /help 或 /帮助 时，根据参数返回相应的帮助信息。
+    - /help: 显示命令列表
+    - /help <命令名>: 显示具体命令的详细信息
     """
-    await help_cmd.finish(HELP_TEXT)
+    # 获取用户输入的参数
+    arg_text = args.extract_plain_text().strip()
+    
+    if not arg_text:
+        # 没有参数，显示命令列表
+        await help_cmd.finish(COMMAND_LIST)
+    else:
+        # 有参数，查找对应的详细帮助
+        command = arg_text.lower()
+        
+        if command in HELP_DETAILS:
+            await help_cmd.finish(HELP_DETAILS[command])
+        else:
+            # 命令不存在，提示用户
+            error_msg = f"❌ 未找到命令 '{arg_text}' 的帮助信息。\n\n使用 /help 查看所有可用命令。"
+            await help_cmd.finish(error_msg)
