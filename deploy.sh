@@ -148,6 +148,29 @@ configure_env() {
     fi
     
     echo ""
+    # Web 管理面板配置
+    read -p "是否配置 Web 管理面板登录凭据？(y/N): " config_web
+    if [[ "$config_web" =~ ^[Yy]$ ]]; then
+        read -p "管理员用户名 (默认 admin): " web_username
+        web_username=${web_username:-admin}
+        sed -i "s|WEB_ADMIN_USERNAME=.*|WEB_ADMIN_USERNAME=$web_username|" .env
+        
+        while true; do
+            read -sp "管理员密码: " web_password
+            echo ""
+            if [ -n "$web_password" ]; then
+                sed -i "s|WEB_ADMIN_PASSWORD=.*|WEB_ADMIN_PASSWORD=$web_password|" .env
+                print_success "✅ Web 管理面板配置成功"
+                break
+            else
+                print_warning "密码不能为空，请重新输入"
+            fi
+        done
+    else
+        print_warning "⚠️  使用默认凭据 (admin/admin123)，建议生产环境修改"
+    fi
+    
+    echo ""
     print_success "✅ 环境变量配置完成"
 }
 

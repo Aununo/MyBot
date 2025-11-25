@@ -24,9 +24,26 @@ sudo apt update && sudo apt upgrade -y
 # 安装必要软件
 sudo apt install -y python3 python3-pip python3-venv nginx git
 
-# 安装 Node.js 18.x
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# 安装 Node.js 20.x
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
+
+# 设置 Docker 的官方 APT 仓库
+sudo apt-get update
+sudo apt-get install ca-certificates curl gnupg
+
+# 添加 Docker 的官方 GPG 密钥
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# 设置 Docker 仓库
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo $VERSION_CODENAME) stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
 ```
 
 ### 2. 克隆项目
@@ -38,7 +55,26 @@ sudo chown -R $USER:$USER MyBot
 cd MyBot
 ```
 
-### 3. 配置后端
+### 3. 配置环境变量
+
+**推荐方式：使用一键部署脚本**
+
+项目根目录的 `deploy.sh` 脚本已包含交互式环境变量配置，会自动引导你输入所有必要的配置项：
+
+```bash
+# 在项目根目录执行
+chmod +x deploy.sh
+./deploy.sh
+```
+
+脚本会自动：
+- 复制 `env.example` 到 `.env`
+- 交互式输入管理员 QQ 号、天气 API Key、邮箱配置等
+- 验证必填项并设置默认值
+
+**手动方式（不推荐）：**
+
+如果需要手动配置：
 
 ```bash
 # 创建 Python 虚拟环境
@@ -53,13 +89,12 @@ cp env.example .env
 nano .env
 ```
 
-编辑 `.env` 设置：
+关键配置项：
 ```bash
-WEB_ADMIN_USERNAME=admin
-WEB_ADMIN_PASSWORD=your_secure_password
-QQ_BOT_ID=your_bot_qq_number
-NAPCAT_HTTP_URL=http://localhost:3000
-NAPCAT_WS_URL=ws://localhost:3001
+SUPERUSERS=["your_qq_number"]      # 管理员 QQ 号
+WEATHER_API_KEY=your_api_key        # OpenWeatherMap API（可选）
+EMAIL_USER=your_email               # 邮箱账号（可选）
+EMAIL_PASSWORD=your_password        # 邮箱密码（可选）
 ```
 
 ### 4. 构建前端
