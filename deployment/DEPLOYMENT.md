@@ -44,6 +44,8 @@ echo \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+
+sudo systemctl start docker
 ```
 
 ### 2. 克隆项目
@@ -56,8 +58,6 @@ cd MyBot
 ```
 
 ### 3. 配置环境变量
-
-**推荐方式：使用一键部署脚本**
 
 项目根目录的 `deploy.sh` 脚本已包含交互式环境变量配置，会自动引导你输入所有必要的配置项：
 
@@ -72,30 +72,6 @@ chmod +x deploy.sh
 - 交互式输入管理员 QQ 号、天气 API Key、邮箱配置等
 - 验证必填项并设置默认值
 
-**手动方式（不推荐）：**
-
-如果需要手动配置：
-
-```bash
-# 创建 Python 虚拟环境
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置环境变量
-cp env.example .env
-nano .env
-```
-
-关键配置项：
-```bash
-SUPERUSERS=["your_qq_number"]      # 管理员 QQ 号
-WEATHER_API_KEY=your_api_key        # OpenWeatherMap API（可选）
-EMAIL_USER=your_email               # 邮箱账号（可选）
-EMAIL_PASSWORD=your_password        # 邮箱密码（可选）
-```
 
 ### 4. 构建前端
 
@@ -139,29 +115,30 @@ server {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
 
-    # SPA 路由
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 静态资源缓存
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # API 代理
+    # API 代理 (必须在静态文件规则之前)
     location /api {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # 健康检查
     location /health {
         proxy_pass http://127.0.0.1:8000;
         access_log off;
+    }
+
+    # 静态资源缓存 (注意：不匹配 /api 路径下的文件)
+    location ~* ^/(?!api/).*\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # SPA 路由 (必须在最后)
+    location / {
+        try_files $uri $uri/ /index.html;
     }
 }
 ```
@@ -175,6 +152,15 @@ sudo systemctl restart nginx
 ```
 
 ### 6. 配置后端服务
+
+创建虚拟环境
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+查看 requirements.txt 中的web依赖.
 
 创建 systemd 服务：
 
