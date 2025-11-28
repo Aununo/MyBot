@@ -5,6 +5,8 @@ from nonebot.params import CommandArg
 from nonebot.adapters.onebot.v11 import Message
 from nonebot.log import logger
 import google.generativeai as genai
+from nonebot.exception import FinishedException
+
 
 # 配置 Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -61,11 +63,8 @@ async def handle_copywriting(event: MessageEvent, args: Message = CommandArg()):
 
 要求：
 1. 保持原句式的结构和对比关系
-2. "{theme1}"对应原句中的"男朋友"，"{theme2}"对应原句中的"厕所"
-3. 替换"大便"为合适的动作或物品
-4. 结尾的称呼可以改为与"{theme2}"相关的昵称
-5. 要生动有趣、富有创意
-6. 直接给出仿写结果，不需要解释和额外说明
+2. 要生动有趣、富有创意
+3. 直接给出仿写结果，不需要解释和额外说明
 
 直接输出仿写的句子即可。"""
     
