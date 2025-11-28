@@ -96,10 +96,14 @@ async def handle_copywriting(event: MessageEvent, args: Message = CommandArg()):
                 await copywriting.finish(f"📝 文案创作完成：\n\n{result_text}")
             else:
                 await copywriting.finish("❌ 生成失败：返回内容为空，请稍后再试。")
-        except Exception as text_error:
+        except FinishedException as fe:
             # 处理无法访问 response.text 的情况
+            logger.error(f"生成过程完成但无有效文本: {fe}")
+            await copywriting.finish("❌ 生成失败：API 返回空结果或未生成有效文案。")
+        except Exception as text_error:
+        # 处理无法访问 response.text 的情况
             logger.error(f"无法获取响应文本: {text_error}")
-            
+
             # 检查是否有候选结果但被安全过滤了
             if hasattr(response, 'candidates') and response.candidates:
                 finish_reason = getattr(response.candidates[0], 'finish_reason', None)
@@ -112,6 +116,10 @@ async def handle_copywriting(event: MessageEvent, args: Message = CommandArg()):
             else:
                 await copywriting.finish("❌ 生成失败：无法获取生成结果，请稍后再试。")
             
+    except FinishedException as e:
+        logger.error(f"生成失败，模型返回 FinishedException: {e}")
+        await copywriting.finish(f"❌ 生成失败：{type(e).__name__}\n请检查 API 配置或稍后重试。")
+    
     except Exception as e:
         logger.error(f"调用 Gemini API 失败: {e}")
         await copywriting.finish(f"❌ 生成失败: {type(e).__name__}\n请检查 API 配置或稍后重试。")
