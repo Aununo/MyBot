@@ -1,0 +1,86 @@
+import os
+from nonebot import on_command
+from nonebot.adapters.onebot.v11 import MessageEvent
+from nonebot.params import CommandArg
+from nonebot.adapters.onebot.v11 import Message
+from nonebot.log import logger
+import google.generativeai as genai
+
+# 配置 Gemini API
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-pro')
+else:
+    model = None
+    logger.warning("未配置 GEMINI_API_KEY，文案生成功能不可用")
+
+# 注册命令
+copywriting = on_command("文案", aliases={"copywriting"}, priority=5, block=True)
+
+@copywriting.handle()
+async def handle_copywriting(event: MessageEvent, args: Message = CommandArg()):
+    """
+    文案仿写功能
+    使用方法：/文案 <主题1> <主题2>
+    例如：/文案 冰激凌 火锅
+    """
+    
+    # 检查是否配置了 API Key
+    if not GEMINI_API_KEY or not model:
+        await copywriting.finish("❌ 未配置 GEMINI_API_KEY，请管理员先在 .env 文件中配置 Gemini API 密钥。")
+        return
+    
+    # 获取参数
+    arg_text = args.extract_plain_text().strip()
+    
+    if not arg_text:
+        await copywriting.finish(
+            "📝 文案仿写功能\n\n"
+            "使用方法：/文案 <主题1> <主题2>\n"
+            "例如：/文案 冰激凌 火锅\n\n"
+            "我会按照特定句式为你创作有趣的文案～"
+        )
+        return
+    
+    # 解析参数
+    themes = arg_text.split()
+    
+    if len(themes) < 2:
+        await copywriting.finish("❌ 请提供至少两个主题词，用空格分隔。\n例如：/文案 冰激凌 火锅")
+        return
+    
+    theme1 = themes[0]
+    theme2 = themes[1]
+    
+    # 构建提示词
+    prompt = f"""请你用"{theme1}"和"{theme2}"按照以下句式进行创意仿写：
+
+原句式：我把大便拉在男朋友头上，男朋友暴跳如雷，我转头把大便拉在厕所里，厕所甘之如饴。爱你老厕明天见！
+
+要求：
+1. 保持原句式的结构和对比关系
+2. "{theme1}"对应原句中的"男朋友"，"{theme2}"对应原句中的"厕所"
+3. 替换"大便"为合适的动作或物品
+4. 结尾的称呼可以改为与"{theme2}"相关的昵称
+5. 要生动有趣、富有创意
+6. 直接给出仿写结果，不需要解释和额外说明
+
+直接输出仿写的句子即可。"""
+    
+    try:
+        await copywriting.send("✍️ 正在创作中，请稍候...")
+        
+        # 调用 Gemini API 生成文案
+        response = model.generate_content(prompt)
+        
+        if response and response.text:
+            result_text = response.text.strip()
+            await copywriting.finish(f"📝 文案创作完成：\n\n{result_text}")
+        else:
+            await copywriting.finish("❌ 生成失败，请稍后再试。")
+            
+    except Exception as e:
+        logger.error(f"调用 Gemini API 失败: {e}")
+        await copywriting.finish(f"❌ 生成失败: {str(e)}\n请检查 API 配置或稍后重试。")

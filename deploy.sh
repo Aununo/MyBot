@@ -148,6 +148,22 @@ configure_env() {
     fi
     
     echo ""
+    # Gemini API 配置（可选）
+    read -p "是否配置 Gemini API（用于文案生成功能）？(y/N): " config_gemini
+    if [[ "$config_gemini" =~ ^[Yy]$ ]]; then
+        echo "💡 提示：在 https://makersuite.google.com/app/apikey 获取 API Key"
+        read -p "Gemini API Key: " gemini_key
+        if [ -n "$gemini_key" ]; then
+            sed -i "s|GEMINI_API_KEY=.*|GEMINI_API_KEY=$gemini_key|" .env
+            print_success "✅ Gemini API 配置成功（文案生成功能已启用）"
+        else
+            print_warning "⚠️  未输入 API Key，文案功能将不可用"
+        fi
+    else
+        print_warning "⚠️  跳过 Gemini API 配置，使用 /文案 命令需要手动配置"
+    fi
+    
+    echo ""
     # Web 管理面板配置
     read -p "是否配置 Web 管理面板登录凭据？(y/N): " config_web
     if [[ "$config_web" =~ ^[Yy]$ ]]; then

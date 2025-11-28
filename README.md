@@ -80,17 +80,8 @@ bash napcat.sh # 按照指引安装即可
 
 - 安装 Nonebot
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate # 新建虚拟环境
-
-pip install nb-cli
-nb create 
-# 按照指引完成配置
-nb run
-```
-
 详情请见 [nonebot 官方文档](https://nonebot.dev/docs/quick-start)
+
 
 - 通信
 
@@ -101,7 +92,7 @@ PORT = 如果 8080 端口被占用，根据你的需要更改
 ONEBOT_ACCESS_TOKEN='temp123456'
 ```
 
-此处为Napcat代理相关配置：
+此处为Napcat代理相关配置，url中的端口需与 nonebot 的 PORT 一致，token 与 nonebot 的 ONEBOT_ACCESS_TOKEN 一致。
 
 ```json
 {
@@ -113,11 +104,11 @@ ONEBOT_ACCESS_TOKEN='temp123456'
       {
         "name": "nonebot",
         "enable": true,
-        "url": "ws://127.0.0.1:8080/onebot/v11/ws", // 与 nonebot 的 PORT 一致
+        "url": "ws://127.0.0.1:8080/onebot/v11/ws", 
         "messagePostFormat": "array",
         "reportSelfMessage": true,
         "reconnectInterval": 5000,
-        "token": "temp123456", // 与 nonebot 的 ONEBOT_ACCESS_TOKEN 一致
+        "token": "temp123456", 
         "debug": false,
         "heartInterval": 30000
       }

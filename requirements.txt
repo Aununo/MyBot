@@ -9,6 +9,9 @@ nonebot-plugin-status>=0.9.0
 # HTTP 客户端
 httpx>=0.27.0
 
+# AI 生成
+google-generativeai>=0.3.0
+
 # 其他 NoneBot 插件或功能依赖
 pillow>=10.2.0
 requests>=2.31.0
