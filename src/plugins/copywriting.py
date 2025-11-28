@@ -7,7 +7,6 @@ from nonebot.log import logger
 import google.generativeai as genai
 
 
-
 # 配置 Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
@@ -95,23 +94,11 @@ async def handle_copywriting(event: MessageEvent, args: Message = CommandArg()):
                 await copywriting.finish(f"📝 文案创作完成：\n\n{result_text}")
             else:
                 await copywriting.finish("❌ 生成失败：返回内容为空，请稍后再试。")
-        
+
         except Exception as text_error:
         # 处理无法访问 response.text 的情况
             logger.error(f"无法获取响应文本: {text_error}")
 
-            # 检查是否有候选结果但被安全过滤了
-            if hasattr(response, 'candidates') and response.candidates:
-                finish_reason = getattr(response.candidates[0], 'finish_reason', None)
-                logger.warning(f"生成完成原因: {finish_reason}")
-                
-                if finish_reason == 4:  # SAFETY
-                    await copywriting.finish("❌ 生成失败：内容触发了安全过滤，请尝试其他主题词。")
-                else:
-                    await copywriting.finish(f"❌ 生成失败：{text_error}\n请检查 API 配置或稍后重试。")
-            else:
-                await copywriting.finish("❌ 生成失败：无法获取生成结果，请稍后再试。")
     
     except Exception as e:
         logger.error(f"调用 Gemini API 失败: {e}")
-        await copywriting.finish(f"❌ 生成失败: {type(e).__name__}\n请检查 API 配置或稍后重试。")
