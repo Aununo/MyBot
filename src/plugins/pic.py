@@ -149,18 +149,28 @@ async def rmpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandArg
     target_dir, display_name, action_arg = parse_args_for_dir(raw_args)
 
     if not action_arg:
-         await rmpic.finish("错误：未提供文件名或 '--all' 参数。")
-         return
+        await rmpic.finish("错误：未提供文件名或 '--all' 参数。")
+        return
 
-    if action_arg in ["--all", "*"]:
+    # --- 修复 --all 分支 (使用 pathlib 更安全) ---
+    if action_arg == "--all":
         try:
-            all_files = [f for f in os.listdir(target_dir) if os.path.isfile(target_dir / f)]
+            # 确保目标是真实存在的目录
+            if not target_dir.is_dir():
+                 await rmpic.finish(f"文件夹 [{display_name}] 不存在。")
+                 return
+
+            # 使用 iterdir() 遍历
+            all_files = [f for f in target_dir.iterdir() if f.is_file()]
+            
             if not all_files:
                 await rmpic.finish(f"文件夹 [{display_name}] 已经是空的了。")
                 return
             
-            for filename in all_files:
-                os.remove(target_dir / filename)
+            for file_to_delete in all_files:
+                # file_to_delete 是一个 Path 对象，是安全的
+                os.remove(file_to_delete) 
+                
         except OSError as e:
             logger.error(f"清空文件夹 {display_name} 时发生错误: {e}")
             await rmpic.finish(f"清空文件夹时发生错误，请检查后台日志。")
@@ -169,18 +179,52 @@ async def rmpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandArg
         await rmpic.finish(f"操作成功！已清空文件夹 [{display_name}]。")
         return
 
-    file_path = target_dir / action_arg
-    if file_path.exists() and file_path.is_file():
+    # --- 核心安全修复：清理和验证文件名 ---
+    
+    # 1. 使用 os.path.basename() 清理输入，移除所有路径信息
+    #    例如: "../../etc/passwd" 会变为 "passwd"
+    sanitized_filename = os.path.basename(action_arg)
+
+    # 2. 检查清理后的名称是否与原始输入相同
+    #    如果不同，说明用户尝试了路径遍历 (e.g., "a/b", "../a")
+    if sanitized_filename != action_arg:
+        logger.warning(f"检测到潜在的路径遍历尝试: {action_arg}")
+        await rmpic.finish(f"错误：文件名包含非法路径字符。")
+        return
+
+    # 3. 使用 绝对安全 的文件名构建路径
+    file_path = target_dir / sanitized_filename
+    
+    # --- 保持原有逻辑，但现在 file_path 是安全的 ---
+    
+    # 为了防止竞争条件和符号链接问题，最好在删除前再次解析和检查
+    try:
+        resolved_dir = target_dir.resolve()
+        resolved_file = file_path.resolve()
+
+        # 再次确认解析后的文件确实在目标目录中
+        if resolved_dir not in resolved_file.parents:
+             await rmpic.finish(f"错误：检测到非法路径。")
+             return
+             
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        logger.error(f"路径解析时发生错误: {e}")
+        await rmpic.finish(f"检查文件路径时发生错误。")
+        return
+
+    if resolved_file.exists() and resolved_file.is_file():
         try:
-            os.remove(file_path)
+            os.remove(resolved_file)
         except OSError as e:
             logger.error(f"删除文件时发生错误: {e}")
             await rmpic.finish(f"删除文件时发生错误，请检查后台日志。")
             return
         
-        await rmpic.finish(f"文件“{action_arg}”已从 [{display_name}] 中成功删除。")
+        await rmpic.finish(f"文件“{sanitized_filename}”已从 [{display_name}] 中成功删除。")
     else:
-        await rmpic.finish(f"在文件夹 [{display_name}] 中未找到文件: {action_arg}")
+        await rmpic.finish(f"在文件夹 [{display_name}] 中未找到文件: {sanitized_filename}")
 
 
 # --- 4. 重命名表情 /mvpic ---
