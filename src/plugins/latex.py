@@ -25,7 +25,7 @@ async def _(matcher: Matcher, args: Message = CommandArg()):
             await matcher.finish("在线渲染服务出错，未能生成图片。请检查后台日志。")
     except (httpx.HTTPError, httpx.TimeoutException) as e:
         logger.error(f"LaTeX渲染过程中发生网络异常: {e}")
-        await matcher.finish(f"渲染失败，网络错误: {e}")
+        await matcher.finish(f"渲染失败")
 
 
 async def render_formula_online(formula: str) -> bytes | None:

@@ -144,9 +144,9 @@ HELP_DETAILS = {
 - /接龙 删除 (别名: /接龙 del/delete/clear)
   » 删除当前群的接龙任务。""",
     
-    "checkmail": """📧【邮件通知插件】
+    "check_email": """📧【邮件通知插件】
 检查当前邮件有没有新邮件。
-- /checkmail
+- /check_email
   » 检查是否有新邮件。""",
     
     "usage": """📊【使用统计插件】
