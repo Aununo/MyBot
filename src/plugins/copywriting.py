@@ -90,8 +90,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    # 使用较新的 flash 模型，你也可以换成 gemini-1.5-flash
-    model = genai.GenerativeModel('gemini-1.5-flash') 
+    model = genai.GenerativeModel('gemini-2.5-flash') 
 else:
     model = None
     logger.warning("未配置 GEMINI_API_KEY，文案生成功能不可用")
