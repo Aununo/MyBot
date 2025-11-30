@@ -120,19 +120,19 @@ def write_json_file(file_path: Path, data: Dict):
 # ============= 提醒 API =============
 
 @app.get("/api/reminders", response_model=Dict[str, List[Dict]])
-async def get_all_reminders():
+async def get_all_reminders(username: str = Depends(verify_credentials)):
     """获取所有用户的提醒列表"""
     data = read_json_file(REMINDERS_FILE)
     return data
 
 @app.get("/api/reminders/{user_id}", response_model=List[Dict])
-async def get_user_reminders(user_id: str):
+async def get_user_reminders(user_id: str, username: str = Depends(verify_credentials)):
     """获取指定用户的提醒"""
     data = read_json_file(REMINDERS_FILE)
     return data.get(user_id, [])
 
 @app.post("/api/reminders/{user_id}", status_code=status.HTTP_201_CREATED)
-async def create_reminder(user_id: str, reminder: ReminderCreate):
+async def create_reminder(user_id: str, reminder: ReminderCreate, username: str = Depends(verify_credentials)):
     """创建新提醒"""
     data = read_json_file(REMINDERS_FILE)
     
@@ -168,7 +168,7 @@ async def create_reminder(user_id: str, reminder: ReminderCreate):
     return {"message": "提醒创建成功", "reminder": new_reminder}
 
 @app.delete("/api/reminders/{user_id}/{job_id}")
-async def delete_reminder(user_id: str, job_id: str):
+async def delete_reminder(user_id: str, job_id: str, username: str = Depends(verify_credentials)):
     """删除指定提醒"""
     data = read_json_file(REMINDERS_FILE)
     
@@ -195,19 +195,19 @@ async def delete_reminder(user_id: str, job_id: str):
 # ============= 待办事项 API =============
 
 @app.get("/api/todos", response_model=Dict)
-async def get_all_todos():
+async def get_all_todos(username: str = Depends(verify_credentials)):
     """获取所有待办事项"""
     data = read_json_file(TODO_FILE)
     return data
 
 @app.get("/api/todos/{user_id}", response_model=Dict[str, List[Dict]])
-async def get_user_todos(user_id: str):
+async def get_user_todos(user_id: str, username: str = Depends(verify_credentials)):
     """获取指定用户的待办事项"""
     data = read_json_file(TODO_FILE)
     return data.get(user_id, {"work": [], "play": []})
 
 @app.post("/api/todos/{user_id}", status_code=status.HTTP_201_CREATED)
-async def create_todo(user_id: str, todo: TodoCreate):
+async def create_todo(user_id: str, todo: TodoCreate, username: str = Depends(verify_credentials)):
     """创建待办事项"""
     data = read_json_file(TODO_FILE)
     
@@ -224,7 +224,7 @@ async def create_todo(user_id: str, todo: TodoCreate):
     return {"message": "待办事项创建成功", "todo": new_todo}
 
 @app.put("/api/todos/{user_id}/{category}/{index}")
-async def update_todo(user_id: str, category: str, index: int, done: bool):
+async def update_todo(user_id: str, category: str, index: int, done: bool, username: str = Depends(verify_credentials)):
     """更新待办事项状态"""
     data = read_json_file(TODO_FILE)
     
@@ -243,7 +243,7 @@ async def update_todo(user_id: str, category: str, index: int, done: bool):
     return {"message": "待办事项已更新", "todo": data[user_id][category][index]}
 
 @app.delete("/api/todos/{user_id}/{category}/{index}")
-async def delete_todo(user_id: str, category: str, index: int):
+async def delete_todo(user_id: str, category: str, index: int, username: str = Depends(verify_credentials)):
     """删除待办事项"""
     data = read_json_file(TODO_FILE)
     
@@ -264,19 +264,19 @@ async def delete_todo(user_id: str, category: str, index: int):
 # ============= 倒计时 API =============
 
 @app.get("/api/countdowns", response_model=Dict)
-async def get_all_countdowns():
+async def get_all_countdowns(username: str = Depends(verify_credentials)):
     """获取所有倒计时"""
     data = read_json_file(COUNTDOWN_FILE)
     return data
 
 @app.get("/api/countdowns/{user_id}", response_model=Dict[str, Dict])
-async def get_user_countdowns(user_id: str):
+async def get_user_countdowns(user_id: str, username: str = Depends(verify_credentials)):
     """获取指定用户的倒计时"""
     data = read_json_file(COUNTDOWN_FILE)
     return data.get(user_id, {})
 
 @app.post("/api/countdowns/{user_id}", status_code=status.HTTP_201_CREATED)
-async def create_countdown(user_id: str, countdown: CountdownCreate):
+async def create_countdown(user_id: str, countdown: CountdownCreate, username: str = Depends(verify_credentials)):
     """创建倒计时"""
     data = read_json_file(COUNTDOWN_FILE)
     
@@ -294,7 +294,7 @@ async def create_countdown(user_id: str, countdown: CountdownCreate):
     return {"message": "倒计时创建成功", "countdown": new_countdown}
 
 @app.delete("/api/countdowns/{user_id}/{event_name}")
-async def delete_countdown(user_id: str, event_name: str):
+async def delete_countdown(user_id: str, event_name: str, username: str = Depends(verify_credentials)):
     """删除倒计时"""
     data = read_json_file(COUNTDOWN_FILE)
     
@@ -315,7 +315,7 @@ async def delete_countdown(user_id: str, event_name: str):
 # ============= 使用统计 API =============
 
 @app.get("/api/usage/overview")
-async def get_usage_overview():
+async def get_usage_overview(username: str = Depends(verify_credentials)):
     """获取总体统计"""
     data = read_json_file(USAGE_FILE)
     records = data.get("sent_messages", [])
@@ -335,7 +335,7 @@ async def get_usage_overview():
     }
 
 @app.get("/api/usage/hourly")
-async def get_usage_hourly():
+async def get_usage_hourly(username: str = Depends(verify_credentials)):
     """按小时统计"""
     data = read_json_file(USAGE_FILE)
     records = data.get("sent_messages", [])
@@ -351,7 +351,7 @@ async def get_usage_hourly():
     return {"hourly_stats": hour_counts}
 
 @app.get("/api/usage/daily")
-async def get_usage_daily():
+async def get_usage_daily(username: str = Depends(verify_credentials)):
     """按日期统计"""
     data = read_json_file(USAGE_FILE)
     records = data.get("sent_messages", [])
@@ -368,7 +368,7 @@ async def get_usage_daily():
     return {"daily_stats": dict(sorted_dates[:30])}  # 最近30天
 
 @app.get("/api/usage/weekday")
-async def get_usage_weekday():
+async def get_usage_weekday(username: str = Depends(verify_credentials)):
     """按星期统计"""
     data = read_json_file(USAGE_FILE)
     records = data.get("sent_messages", [])
@@ -388,7 +388,7 @@ async def get_usage_weekday():
 # ============= 系统状态 API =============
 
 @app.get("/api/status")
-async def get_system_status():
+async def get_system_status(username: str = Depends(verify_credentials)):
     """获取系统状态"""
     try:
         cpu_percent = psutil.cpu_percent(interval=1)
@@ -425,7 +425,7 @@ for folder_path in IMAGE_FOLDERS.values():
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
 
 @app.get("/api/images")
-async def get_all_images():
+async def get_all_images(username: str = Depends(verify_credentials)):
     """获取所有文件夹的图片列表"""
     result = {}
     
@@ -449,7 +449,7 @@ async def get_all_images():
     return result
 
 @app.get("/api/images/{folder}")
-async def get_folder_images(folder: str):
+async def get_folder_images(folder: str, username: str = Depends(verify_credentials)):
     """获取指定文件夹的图片列表"""
     if folder not in IMAGE_FOLDERS:
         raise HTTPException(status_code=404, detail="文件夹不存在")
@@ -474,7 +474,7 @@ async def get_folder_images(folder: str):
     return {"folder": folder, "images": images}
 
 @app.get("/api/images/{folder}/{filename}")
-async def get_image(folder: str, filename: str):
+async def get_image(folder: str, filename: str, username: str = Depends(verify_credentials)):
     """下载/查看图片"""
     if folder not in IMAGE_FOLDERS:
         raise HTTPException(status_code=404, detail="文件夹不存在")
@@ -488,7 +488,7 @@ async def get_image(folder: str, filename: str):
     return FileResponse(file_path)
 
 @app.post("/api/images/{folder}/upload", status_code=status.HTTP_201_CREATED)
-async def upload_image(folder: str, file: UploadFile = File(...)):
+async def upload_image(folder: str, file: UploadFile = File(...), username: str = Depends(verify_credentials)):
     """上传图片到指定文件夹"""
     
     if folder not in IMAGE_FOLDERS:
@@ -536,7 +536,7 @@ async def upload_image(folder: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
 @app.delete("/api/images/{folder}/{filename}")
-async def delete_image(folder: str, filename: str):
+async def delete_image(folder: str, filename: str, username: str = Depends(verify_credentials)):
     """删除图片"""
     if folder not in IMAGE_FOLDERS:
         raise HTTPException(status_code=404, detail="文件夹不存在")
@@ -573,7 +573,7 @@ def write_eat_data(data: Dict):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 @app.get("/api/eat")
-async def get_eat_data():
+async def get_eat_data(username: str = Depends(verify_credentials)):
     """获取所有吃什么数据"""
     data = read_eat_data()
     return {
@@ -582,7 +582,7 @@ async def get_eat_data():
     }
 
 @app.get("/api/eat/{list_name}")
-async def get_eat_list(list_name: str):
+async def get_eat_list(list_name: str, username: str = Depends(verify_credentials)):
     """获取指定列表的食物"""
     if list_name not in ["android", "apple"]:
         raise HTTPException(status_code=404, detail="列表不存在")
@@ -591,7 +591,7 @@ async def get_eat_list(list_name: str):
     return {"list_name": list_name, "foods": data.get(list_name, [])}
 
 @app.post("/api/eat/{list_name}", status_code=status.HTTP_201_CREATED)
-async def add_food(list_name: str, food: str):
+async def add_food(list_name: str, food: str, username: str = Depends(verify_credentials)):
     """添加食物到列表"""
     if list_name not in ["android", "apple"]:
         raise HTTPException(status_code=404, detail="列表不存在")
@@ -607,7 +607,7 @@ async def add_food(list_name: str, food: str):
     return {"message": f"已添加 {food} 到 {list_name} 列表", "food": food}
 
 @app.delete("/api/eat/{list_name}/{food}")
-async def delete_food(list_name: str, food: str):
+async def delete_food(list_name: str, food: str, username: str = Depends(verify_credentials)):
     """从列表删除食物"""
     if list_name not in ["android", "apple"]:
         raise HTTPException(status_code=404, detail="列表不存在")
