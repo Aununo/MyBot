@@ -15,3 +15,7 @@ web/__pycache__
 .env
 
 web/frontend/node_modules
+
+deployment/nginx_bot.conf
+
+web/web_api.py

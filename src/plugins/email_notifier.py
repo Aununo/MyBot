@@ -102,14 +102,12 @@ async def check_and_notify(bot: Bot, event: Optional[Event] = None) -> Tuple[boo
                     
                     # 4. 判断通知目标
                     if event:
-                        # 手动触发: 发送到命令来源 (群聊或私聊)
                         try:
                             await bot.send(event=event, message=notify_msg)
                         except Exception as e:
                             logger.error(f"Failed to send email notification to event source: {e}")
                     else:
-                        # (此分支现在不会被调用，但保留逻辑以备将来使用)
-                        # 定时任务: 发送给 superusers
+                        # (此分支现在不会被调用，但保留逻辑以备将来使用) 定时任务 发送给 superusers
                         for user_id in global_config.superusers:
                             try:
                                 await bot.send_private_msg(user_id=int(user_id), message=notify_msg)
@@ -147,5 +145,3 @@ async def handle_check_email(bot: Bot, event: Event):
         await check_email_cmd.finish(message)
     else:
         await check_email_cmd.finish(f"检查失败: {message}")
-
-# --- (定时任务代码已移除) ---

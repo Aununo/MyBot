@@ -126,7 +126,6 @@ async def savepic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
         if save_path.exists():
             await savepic.finish(f"保存失败：名为“{save_path.name}”的文件已在 [{folder_display_name}] 文件夹中存在。")
             
-        # --- 原有逻辑 ---
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.get(media_url)
             response.raise_for_status()
@@ -136,7 +135,6 @@ async def savepic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
         await savepic.finish(f"文件已保存至 [{folder_display_name}] 文件夹: {save_path.name}")
 
     except ValueError as e:
-        # 捕获来自 get_safe_path 的安全错误
         await savepic.finish(str(e))
     except httpx.HTTPError as e:
         await savepic.finish(f"下载文件失败，网络错误或链接失效: {e}")
@@ -157,7 +155,6 @@ async def sendpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
     target_dir, display_name, filename_arg = parse_args_for_dir(raw_args)
 
     try:
-        # --- 安全修复 ---
         file_path = get_safe_path(target_dir, filename_arg)
         
         if file_path.exists() and file_path.is_file():
@@ -181,7 +178,6 @@ async def sendpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
             await sendpic.finish(f"在 [{display_name}] 库中未找到文件: {file_path.name}")
 
     except ValueError as e:
-        # 捕获来自 get_safe_path 的安全错误
         await sendpic.finish(str(e))
 
 
@@ -200,7 +196,7 @@ async def rmpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandArg
         await rmpic.finish("错误：未提供文件名或 '--all' 参数。")
         return
 
-    # --- '--all' 分支 (已经是安全的) ---
+    # --- '--all' 分支---
     if action_arg == "--all":
         try:
             if not target_dir.is_dir():
@@ -300,7 +296,6 @@ async def mvpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandArg
 
 
 # --- 5. 列出所有表情 /listpic ---
-# (此处理器是安全的，因为它不使用用户输入来构建路径)
 listpic = on_command("listpic", priority=1, block=True)
 
 @listpic.handle()
@@ -321,7 +316,6 @@ async def listpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
         await listpic.finish(f"文件夹 [{display_name}] 是空的哦！")
         return
 
-    # keyword 仅用于字符串过滤，不是路径操作
     files = [f for f in all_files_names if keyword in f] if keyword else all_files_names
     
     if not files:
@@ -333,7 +327,6 @@ async def listpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
 
 
 # --- 6. 随机发送表情 /randpic ---
-# (此处理器是安全的，原因同上)
 randpic = on_command("randpic", aliases={"随机表情"}, priority=1, block=True)
 
 @randpic.handle()

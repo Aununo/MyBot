@@ -8,7 +8,6 @@ from typing import Dict, List
 from zoneinfo import ZoneInfo
 from nonebot import on_command, get_bot, logger
 from nonebot.adapters.onebot.v11 import MessageEvent, Bot, Message
-# 删除了 event_preprocessor
 from nonebot.params import CommandArg
 from nonebot.matcher import Matcher
 from nonebot.exception import FinishedException
@@ -56,11 +55,9 @@ def load_data():
         if usage_data_file.exists():
             with open(usage_data_file, "r", encoding="utf-8") as f:
                 loaded_data = json.load(f)
-                # 确保数据结构正确
                 if isinstance(loaded_data, dict) and "sent_messages" in loaded_data:
                     usage_data = loaded_data
                 else:
-                    # 如果是旧结构或无效结构，重置为新结构
                     usage_data = {"sent_messages": []}
                     save_data()
         else:
@@ -76,8 +73,7 @@ def record_message_send():
     """记录机器人发送消息"""
     if "sent_messages" not in usage_data:
         usage_data["sent_messages"] = []
-    
-    # 使用中国时区获取当前时间
+
     now = datetime.now(TARGET_TZ) if TARGET_TZ else datetime.now()
     record = {
         "timestamp": int(now.timestamp()),
@@ -98,19 +94,15 @@ def record_message_send():
     save_data()
 
 
-# 删除了 @event_preprocessor
 
-# --- 新增：使用 on_called_api 钩子 ---
 @Bot.on_called_api
 async def record_sent_message(
     bot: Bot, exception: Exception | None, api: str, data: dict, result: dict
 ):
     """记录机器人发送的消息"""
-    # 如果 API 调用出错，则不记录
     if exception:
         return
 
-    # 仅在成功发送消息时记录
     if api in ["send_msg", "send_private_msg", "send_group_msg"]:
         record_message_send()
 
@@ -142,7 +134,6 @@ async def usage_handle(matcher: Matcher, bot: Bot, event: MessageEvent, args: Me
             # 按星期统计
             await show_weekday_stats(matcher)
         
-        # 移除了 "cmd" 和 "top" 相关的分支
         
         else:
             await matcher.finish(
@@ -294,18 +285,14 @@ async def show_weekday_stats(matcher: Matcher):
     message = "📆 按星期统计\n━━━━━━━━\n"
     
     max_count = max(weekday_counts.values()) if weekday_counts else 1
-    # 缩短柱状图长度以适应手机端，避免换行
     max_bar_length = 8
     
     for weekday in weekday_order:
         if weekday in weekday_counts:
             count = weekday_counts[weekday]
             bar_length = int(count / max_count * max_bar_length)
-            # 使用全角字符，确保对齐
             bar = "█" * bar_length
-            # 用全角空格填充剩余部分，确保右端对齐
-            padding = "　" * (max_bar_length - bar_length)  # 全角空格
-            # 使用固定宽度格式，确保对齐
+            padding = "　" * (max_bar_length - bar_length)  
             message += f"{weekday_names[weekday]}: |{bar}{padding}| {count}\n"
     
     await matcher.finish(message)
