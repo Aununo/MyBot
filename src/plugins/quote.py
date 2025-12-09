@@ -4,11 +4,7 @@
 """
 import io
 import os
-import time
-import hashlib
-from pathlib import Path
 from typing import Optional, Tuple
-from datetime import datetime
 
 import httpx
 from nonebot import on_command
@@ -25,10 +21,6 @@ from nonebot.log import logger
 from PIL import Image, ImageDraw, ImageFont
 
 # ==================== 配置 ====================
-
-# 图片保存目录
-SAVE_DIR = Path(__file__).parent.parent / "assets" / "pics"
-SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # 头像尺寸
 AVATAR_SIZE = 50
@@ -403,13 +395,7 @@ async def handle_save(bot: Bot, event: MessageEvent, args: Message = CommandArg(
             level=level
         )
         
-        # 保存到文件
-        filename = f"quote_{int(time.time())}_{hashlib.md5(reply_content.encode()).hexdigest()[:8]}.png"
-        save_path = SAVE_DIR / filename
-        with open(save_path, 'wb') as f:
-            f.write(image_bytes)
-        
-        logger.info(f"消息截图已保存: {save_path}")
+
         
         # 发送图片
         await save_cmd.finish(MessageSegment.image(image_bytes))
