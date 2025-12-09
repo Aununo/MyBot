@@ -156,6 +156,10 @@ async def handle_copywriting(event: MessageEvent, args: Message = CommandArg()):
             f"使用方法：/文案 [样式编号] <主题1> <主题2>\n"
             f"例如：/文案 1 冰激凌 火锅\n\n"
             f"当前支持 {len(PROMPT_STYLES)} 种样式。"
+            f"1: 对比句\n"
+            f"2: 知乎体\n"
+            f"3: 小红书体\n"
+            f"4: 鲁迅体\n"
         )
         return
     
