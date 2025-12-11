@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![NoneBot](https://img.shields.io/badge/NoneBot-2.4.3-green.svg)](https://nonebot.dev/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-red.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-brightgreen.svg)](docker-compose.yml)
 
 基于 NoneBot2 和 NapCat 的功能丰富的 QQ 机器人，支持提醒、待办事项、天气查询等多种实用功能。
@@ -155,7 +155,7 @@ MyBot/
 ├── docker-compose.yml      # Docker Compose 配置
 ├── Dockerfile              # Docker 镜像构建
 ├── env.example             # 环境变量模板
-├── LICENSE                 # MIT 许可证
+├── LICENSE                 # 许可证
 ├── README.md               # 项目说明
 ├── src/
 │   └── plugins/           # 自定义插件目录
@@ -192,7 +192,7 @@ MyBot/
 
 ## 📄 许可证
 
-本项目采用 [MIT](LICENSE) 许可证。
+本项目 **保留所有权利**，详见 [LICENSE](LICENSE) 文件。
 
 
 
