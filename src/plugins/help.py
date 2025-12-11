@@ -230,7 +230,7 @@ COMMAND_LIST = """====== 机器人指令列表 ======
 - /课表                  - 课程表管理
 - /pic                   - 图片管理
 - /接龙                  - 接龙活动
-- /checkmail             - 邮件检查
+- /check_email             - 邮件检查
 - /usage                 - 使用统计
 - /ping                  - 响应测试
 - /latex                 - LaTeX 渲染
