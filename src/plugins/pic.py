@@ -322,8 +322,52 @@ async def listpic_handle(bot: Bot, event: MessageEvent, args: Message = CommandA
         await listpic.finish(f"在 [{display_name}] 中没有找到包含“{keyword}”的文件。")
         return
     
-    header = f"文件夹 [{display_name}] 中共有 {len(files)} 个文件{' (含关键词)' if keyword else ''}："
-    await listpic.finish(header + "\n" + "\n".join(files))
+    # 构建合并转发消息
+    FILES_PER_NODE = 10
+    
+    # 构造转发消息节点
+    forward_nodes = []
+    
+    # 第一个节点：概要信息
+    header = f"📁 文件夹 [{display_name}] 中共有 {len(files)} 个文件{' (含关键词)' if keyword else ''}"
+    forward_nodes.append({
+        "type": "node",
+        "data": {
+            "uin": str(bot.self_id),
+            "content": header
+        }
+    })
+    
+    # 将文件列表分组
+    for i in range(0, len(files), FILES_PER_NODE):
+        chunk = files[i:i + FILES_PER_NODE]
+        page_num = (i // FILES_PER_NODE) + 1
+        total_pages = (len(files) + FILES_PER_NODE - 1) // FILES_PER_NODE
+        
+        content = f"📄 第 {page_num}/{total_pages} 页\n" + "─" * 15 + "\n"
+        content += "\n".join(chunk)
+        
+        forward_nodes.append({
+            "type": "node",
+            "data": {
+                "uin": str(bot.self_id),
+                "content": content
+            }
+        })
+    
+    try:
+        # 根据消息类型选择合适的转发方式
+        if event.message_type == "group":
+            await bot.call_api("send_group_forward_msg", group_id=event.group_id, messages=forward_nodes)
+        else:
+            await bot.call_api("send_private_forward_msg", user_id=event.user_id, messages=forward_nodes)
+    except Exception as e:
+        logger.error(f"发送合并转发消息失败: {e}")
+        # 降级：如果转发消息发送失败，尝试发送普通消息
+        fallback_msg = header + "\n" + "\n".join(files[:50])
+        if len(files) > 50:
+            fallback_msg += f"\n... 共 {len(files)} 个文件，仅显示前 50 个"
+        await listpic.finish(fallback_msg)
 
 
 # --- 6. 随机发送表情 /randpic ---

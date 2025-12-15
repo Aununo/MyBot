@@ -59,8 +59,49 @@ async def handle_food_command(matcher: Matcher, bot: Bot, event: MessageEvent, l
         if not food_list:
             await matcher.finish(f"[{list_name}] 的食物列表是空的哦！")
         
-        message = f"--- [{list_name}] 食物列表 ---\n" + "\n".join(food_list)
-        await matcher.finish(message)
+        # 构建合并转发消息
+        ITEMS_PER_NODE = 10
+        forward_nodes = []
+        
+        # 第一个节点：概要信息
+        header = f"📋 [{list_name}] 食物列表共有 {len(food_list)} 项"
+        forward_nodes.append({
+            "type": "node",
+            "data": {
+                "uin": str(bot.self_id),
+                "content": header
+            }
+        })
+        
+        # 将食物列表分组
+        for i in range(0, len(food_list), ITEMS_PER_NODE):
+            chunk = food_list[i:i + ITEMS_PER_NODE]
+            page_num = (i // ITEMS_PER_NODE) + 1
+            total_pages = (len(food_list) + ITEMS_PER_NODE - 1) // ITEMS_PER_NODE
+            
+            content = f"📄 第 {page_num}/{total_pages} 页\n" + "─" * 15 + "\n"
+            content += "\n".join(chunk)
+            
+            forward_nodes.append({
+                "type": "node",
+                "data": {
+                    "uin": str(bot.self_id),
+                    "content": content
+                }
+            })
+        
+        try:
+            if event.message_type == "group":
+                await bot.call_api("send_group_forward_msg", group_id=event.group_id, messages=forward_nodes)
+            else:
+                await bot.call_api("send_private_forward_msg", user_id=event.user_id, messages=forward_nodes)
+        except Exception as e:
+            # 降级：发送普通消息
+            fallback_msg = header + "\n" + "\n".join(food_list[:50])
+            if len(food_list) > 50:
+                fallback_msg += f"\n... 共 {len(food_list)} 项，仅显示前 50 项"
+            await matcher.finish(fallback_msg)
+        return
 
     # --- 添加食物 ---
     elif subcommand == "add" and len(parts) > 1:
