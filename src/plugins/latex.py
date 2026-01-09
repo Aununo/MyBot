@@ -48,6 +48,9 @@ def normalize_formula(raw_formula: str) -> tuple[str, bool]:
         lines = [line.strip() for line in formula.splitlines() if line.strip()]
         formula = "\\begin{aligned}" + " \\\\ ".join(lines) + "\\end{aligned}"
 
+    if "\\boxed" not in formula and "\\fbox" not in formula and "\\framebox" not in formula:
+        formula = "\\boxed{\\; " + formula + " \\;}"
+
     return formula, inline_mode
 
 
