@@ -10,15 +10,16 @@ latex_renderer = on_command("latex", aliases={"tex"}, priority=1, block=True)
 
 @latex_renderer.handle()
 async def _(matcher: Matcher, args: Message = CommandArg()):
-    formula = args.extract_plain_text().strip()
+    raw_formula = args.extract_plain_text().strip()
 
-    if not formula:
+    if not raw_formula:
         await matcher.finish("请输入需要渲染的LaTeX公式！\n用法: /latex [公式]")
 
-    logger.info(f"接收到LaTeX渲染请求，公式: {formula}")
+    logger.info(f"接收到LaTeX渲染请求，公式: {raw_formula}")
 
     try:
-        image_bytes = await render_formula_online(formula)
+        formula, inline_mode = normalize_formula(raw_formula)
+        image_bytes = await render_formula_online(formula, inline_mode=inline_mode)
         if image_bytes:
             await matcher.finish(MessageSegment.image(image_bytes))
         else:
@@ -28,9 +29,32 @@ async def _(matcher: Matcher, args: Message = CommandArg()):
         await matcher.finish(f"渲染失败")
 
 
-async def render_formula_online(formula: str) -> bytes | None:
+def normalize_formula(raw_formula: str) -> tuple[str, bool]:
+    inline_mode = False
+    formula = raw_formula.strip()
+
+    if formula.startswith("$$") and formula.endswith("$$") and len(formula) > 4:
+        formula = formula[2:-2].strip()
+    elif formula.startswith("$") and formula.endswith("$") and len(formula) > 2:
+        inline_mode = True
+        formula = formula[1:-1].strip()
+    elif formula.startswith("\\[") and formula.endswith("\\]") and len(formula) > 4:
+        formula = formula[2:-2].strip()
+    elif formula.startswith("\\(") and formula.endswith("\\)") and len(formula) > 4:
+        inline_mode = True
+        formula = formula[2:-2].strip()
+
+    if "\n" in formula and "\\begin{" not in formula:
+        lines = [line.strip() for line in formula.splitlines() if line.strip()]
+        formula = "\\begin{aligned}" + " \\\\ ".join(lines) + "\\end{aligned}"
+
+    return formula, inline_mode
+
+
+async def render_formula_online(formula: str, inline_mode: bool = False) -> bytes | None:
     encoded_formula = quote(formula)
-    api_url = f"https://latex.codecogs.com/png.image?\\dpi{{300}}\\bg{{white}}{encoded_formula}"
+    mode_prefix = "\\inline" if inline_mode else ""
+    api_url = f"https://latex.codecogs.com/png.image?{mode_prefix}\\dpi{{300}}\\bg{{white}}{encoded_formula}"
     
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:

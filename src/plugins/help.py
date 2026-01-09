@@ -166,7 +166,7 @@ HELP_DETAILS = {
     
     "latex": """✨【通用指令 - LaTeX】
 - /latex <LaTeX代码>
-  » 渲染 LaTeX 公式为图片。""",
+  » 渲染 LaTeX 公式为图片，支持多行/环境及行内模式。""",
     
     "文案": """✨【通用指令 - 文案生成】
 - /文案 <主题1> <主题2> (别名: /copywriting)
