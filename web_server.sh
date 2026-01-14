@@ -11,15 +11,23 @@ if [ ! -d "web" ]; then
     exit 1
 fi
 
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # 检查 Python 依赖（使用独立虚拟环境，避免系统环境限制）
 echo "📦 检查依赖..."
-VENV_DIR=".venv-web"
+VENV_DIR="$ROOT_DIR/.venv-web"
 if [ ! -d "$VENV_DIR" ]; then
-    python3 -m venv "$VENV_DIR"
+    python3 -m venv "$VENV_DIR" 2>/dev/null
 fi
 
 PY_BIN="$VENV_DIR/bin/python"
 PIP_BIN="$VENV_DIR/bin/pip"
+
+if [ ! -x "$PY_BIN" ]; then
+    echo "❌ 未能创建虚拟环境，请先安装 venv 组件："
+    echo "   sudo apt install -y python3-venv"
+    exit 1
+fi
 
 $PY_BIN -c "import fastapi, uvicorn, psutil, httpx" 2>/dev/null
 if [ $? -ne 0 ]; then
@@ -28,7 +36,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # 切换到 web 目录
-cd web
+cd "$ROOT_DIR/web"
 
 # 启动服务
 echo ""
