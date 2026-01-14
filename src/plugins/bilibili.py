@@ -8,6 +8,7 @@ import time
 import urllib.parse
 from pathlib import Path
 from typing import Optional, Tuple
+import html
 
 import httpx
 from nonebot import on_message, logger
@@ -220,14 +221,77 @@ async def extract_bili_id(client: httpx.AsyncClient, text: str) -> Tuple[Optiona
     return None, None, None
 
 
-def collect_raw_message_text(event: MessageEvent) -> str:
-    parts = []
+def sanitize_url(url: str) -> str:
+    if not url:
+        return url
+    url = url.strip()
+    url = html.unescape(url)
+    url = url.replace("\\u0026", "&").replace("\\u003d", "=").replace("\\/", "/")
+    return url
+
+
+def normalize_title(title: str) -> str:
+    title = (title or "").strip()
+    if not title:
+        return ""
+    title = title.replace("[QQ小程序]", "").strip()
+    title = title.replace("哔哩哔哩", "").strip()
+    return title
+
+
+def extract_candidates_from_event(event: MessageEvent) -> Tuple[str, list, list]:
+    raw_parts = []
+    urls = []
+    titles = []
+
+    def record_text(value: str) -> None:
+        if not value:
+            return
+        raw_parts.append(value)
+        if "bilibili.com" in value or "b23.tv" in value or "bili2233.cn" in value:
+            urls.append(value)
+
+    def walk_json(obj) -> None:
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if isinstance(value, (dict, list)):
+                    walk_json(value)
+                elif isinstance(value, str):
+                    record_text(value)
+                    lower_key = key.lower()
+                    if lower_key in {"desc", "title", "prompt", "summary", "name"}:
+                        titles.append(value)
+                    if lower_key in {"url", "jumpurl", "jump_url", "targeturl", "qqdocurl", "preview"}:
+                        urls.append(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk_json(item)
+
     for seg in event.message:
         if seg.type == "text":
-            parts.append(seg.data.get("text", ""))
-        elif seg.type in {"json", "xml"}:
-            parts.append(seg.data.get("data", ""))
-    return "\n".join(parts)
+            record_text(seg.data.get("text", ""))
+        elif seg.type == "json":
+            data = seg.data.get("data", "")
+            record_text(data)
+            try:
+                payload = json.loads(data)
+                walk_json(payload)
+            except Exception:
+                continue
+        elif seg.type == "xml":
+            data = seg.data.get("data", "")
+            record_text(data)
+            xml_text = html.unescape(data)
+            for url in URL_RE.findall(xml_text):
+                urls.append(url)
+            title_match = DESC_RE.search(xml_text) or TITLE_RE.search(xml_text)
+            if title_match:
+                titles.append(title_match.group(1))
+
+    urls = [sanitize_url(u) for u in urls if u]
+    titles = [normalize_title(t) for t in titles if t]
+    raw_text = "\n".join(raw_parts)
+    return raw_text, urls, titles
 
 
 def hmac_sha256(key: str, message: str) -> str:
@@ -361,7 +425,7 @@ async def fetch_play_url(
     durl = data.get("durl") or []
     if not durl:
         return None
-    return durl[0].get("url")
+    return sanitize_url(durl[0].get("url"))
 
 
 def build_forward_nodes(
@@ -459,17 +523,23 @@ async def handle_bilibili(bot: Bot, event: MessageEvent):
         return
 
     async with httpx.AsyncClient(timeout=10.0) as client:
-        raw_text = collect_raw_message_text(event)
+        raw_text, urls, titles = extract_candidates_from_event(event)
         combined = "\n".join([plain, raw_text]).strip()
         bvid, aid, video_url = await extract_bili_id(client, combined)
         if not bvid and not aid:
-            title_match = DESC_RE.search(raw_text) or TITLE_RE.search(raw_text)
-            if title_match:
-                title = title_match.group(1)
-                if title and "哔哩" not in title:
-                    search_url = await search_bili_by_title(client, title)
-                    if search_url:
-                        bvid, aid, video_url = await extract_bili_id(client, search_url)
+            for url in urls:
+                bvid, aid, video_url = await extract_bili_id(client, url)
+                if bvid or aid:
+                    break
+        if not bvid and not aid:
+            for title in titles:
+                if not title:
+                    continue
+                search_url = await search_bili_by_title(client, title)
+                if search_url:
+                    bvid, aid, video_url = await extract_bili_id(client, search_url)
+                    if bvid or aid:
+                        break
         if not bvid and not aid:
             return
 
