@@ -28,22 +28,6 @@ services:
     networks:
       - bot-network
   
-  web:
-    container_name: mybot_web
-    build: .
-    restart: always
-    env_file:
-      - .env
-    working_dir: /app/web
-    command: ["python3", "-m", "uvicorn", "web_api:app", "--host", "0.0.0.0", "--port", "8000"]
-    volumes:
-      - ./data:/app/data
-      - ./web:/app/web
-    ports:
-      - "8000:8000"
-    networks:
-      - bot-network
-
 networks:
   bot-network:
     driver: bridge
