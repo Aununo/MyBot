@@ -28,6 +28,7 @@ URL_RE = re.compile(r"https?://[^\s]+")
 SHORT_RE = re.compile(r"https?://(b23\.tv|bili2233\.cn)/[^\s]+", re.I)
 DESC_RE = re.compile(r'"desc":"([^"]+)"')
 TITLE_RE = re.compile(r'"title":"([^"]+)"')
+PROMPT_RE = re.compile(r'"prompt":"([^"]+)"')
 
 BILI_SESSDATA = os.getenv("BILI_SESSDATA", "").strip()
 BILI_BILI_JCT = os.getenv("BILI_BILI_JCT", "").strip()
@@ -237,6 +238,20 @@ def normalize_title(title: str) -> str:
     title = title.replace("[QQ小程序]", "").strip()
     title = title.replace("哔哩哔哩", "").strip()
     return title
+
+
+def extract_title_from_raw_text(raw_text: str) -> str:
+    if not raw_text:
+        return ""
+    cleaned = html.unescape(raw_text)
+    for regex in (DESC_RE, PROMPT_RE, TITLE_RE):
+        match = regex.search(cleaned)
+        if not match:
+            continue
+        title = normalize_title(match.group(1))
+        if title and "哔哩" not in title:
+            return title
+    return ""
 
 
 def extract_candidates_from_event(event: MessageEvent) -> Tuple[str, list, list]:
@@ -532,6 +547,9 @@ async def handle_bilibili(bot: Bot, event: MessageEvent):
                 if bvid or aid:
                     break
         if not bvid and not aid:
+            raw_title = extract_title_from_raw_text(raw_text)
+            if raw_title:
+                titles.insert(0, raw_title)
             for title in titles:
                 if not title:
                     continue
