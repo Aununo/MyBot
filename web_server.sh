@@ -13,10 +13,10 @@ fi
 
 # 检查 Python 依赖
 echo "📦 检查依赖..."
-python3 -c "import fastapi, uvicorn, psutil" 2>/dev/null
+python3 -c "import fastapi, uvicorn, psutil, httpx" 2>/dev/null
 if [ $? -ne 0 ]; then
     echo "⚠️  检测到缺少依赖，正在安装..."
-    pip3 install fastapi uvicorn[standard] python-multipart psutil
+    pip3 install fastapi uvicorn[standard] python-multipart psutil httpx
 fi
 
 # 切换到 web 目录

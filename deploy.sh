@@ -188,6 +188,24 @@ configure_env() {
     else
         print_warning "⚠️  跳过 B 站 Cookie 配置，直链解析将不可用"
     fi
+
+    echo ""
+    # B 站代理播放链接（可选）
+    read -p "是否配置 B 站代理播放链接（用于 QQ 内直连播放）？(y/N): " config_bili_proxy
+    if [[ "$config_bili_proxy" =~ ^[Yy]$ ]]; then
+        read -p "代理服务访问地址 (例如 http://your-host:8000): " bili_proxy_base
+        if [ -n "$bili_proxy_base" ]; then
+            sed -i "s|BILI_PROXY_BASE_URL=.*|BILI_PROXY_BASE_URL=$bili_proxy_base|" .env
+        else
+            print_warning "⚠️  未输入代理地址，将使用默认值"
+        fi
+        read -p "代理链接有效期（秒，默认 3600）: " bili_proxy_ttl
+        bili_proxy_ttl=${bili_proxy_ttl:-3600}
+        sed -i "s|BILI_PROXY_TTL=.*|BILI_PROXY_TTL=$bili_proxy_ttl|" .env
+        print_success "✅ B 站代理播放链接配置完成"
+    else
+        print_warning "⚠️  跳过代理播放链接配置"
+    fi
     
     echo ""
     # Web 管理面板配置
