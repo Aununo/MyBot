@@ -162,6 +162,32 @@ configure_env() {
     else
         print_warning "⚠️  跳过 Gemini API 配置，使用 /文案 命令需要手动配置"
     fi
+
+    echo ""
+    # B 站 Cookie（可选）
+    read -p "是否配置 B 站 Cookie（用于视频直链解析）？(y/N): " config_bili
+    if [[ "$config_bili" =~ ^[Yy]$ ]]; then
+        echo "💡 提示：在浏览器登录 bilibili.com 后，从 Cookies 中获取 SESSDATA/bili_jct/DedeUserID"
+        read -p "SESSDATA（必填）: " bili_sessdata
+        if [ -n "$bili_sessdata" ]; then
+            sed -i "s|BILI_SESSDATA=.*|BILI_SESSDATA=$bili_sessdata|" .env
+        else
+            print_warning "⚠️  未输入 SESSDATA，B 站直链解析将不可用"
+        fi
+
+        read -p "bili_jct（可选）: " bili_jct
+        if [ -n "$bili_jct" ]; then
+            sed -i "s|BILI_BILI_JCT=.*|BILI_BILI_JCT=$bili_jct|" .env
+        fi
+
+        read -p "DedeUserID（可选）: " bili_dedeuserid
+        if [ -n "$bili_dedeuserid" ]; then
+            sed -i "s|BILI_DEDEUSERID=.*|BILI_DEDEUSERID=$bili_dedeuserid|" .env
+        fi
+        print_success "✅ B 站 Cookie 配置完成"
+    else
+        print_warning "⚠️  跳过 B 站 Cookie 配置，直链解析将不可用"
+    fi
     
     echo ""
     # Web 管理面板配置
@@ -339,4 +365,3 @@ main() {
 
 # 运行主函数
 main "$@"
-

@@ -42,6 +42,10 @@
 - **weather** - 城市天气查询 (`/天气 北京`)
 - **latex** - LaTeX 公式渲染 (`/latex E=mc^2`)
 - **pic** - 图片管理 (`/savepic`, `/sendpic`)
+- **summary** - 群聊内容总结 (`/总结`)
+- **copywriting** - 文案生成 (`/文案`)
+- **quote** - 消息截图 (`/save`)
+- **bilibili** - B 站视频解析（群聊自动触发）
 - **relay** - 群内接龙（`/接龙`）
 - **email_notifier** - 检查邮箱新邮件（`/check_email`）
 - **usage** - 查看命令使用情况（`/usage`）
@@ -155,33 +159,38 @@ MyBot/
 ├── docker-compose.yml      # Docker Compose 配置
 ├── Dockerfile              # Docker 镜像构建
 ├── env.example             # 环境变量模板
-├── LICENSE                 # 许可证
+├── deploy.sh               # 一键部署脚本
+├── web_server.sh           # Web 管理面板启动脚本
 ├── README.md               # 项目说明
+├── LICENSE                 # 许可证
 ├── src/
-│   └── plugins/           # 自定义插件目录
-│       ├── help.py
-│       ├── remind.py
-│       ├── eat.py
+│   └── plugins/            # 自定义插件目录
+│       ├── bilibili.py
+│       ├── summary.py
+│       ├── weather.py
 │       └── ...
-├── web/                    # Web 管理界面 (NEW!)
-│   ├── web_api.py         # FastAPI 后端
-│   ├── static/
-│   │   ├── index.html     # 前端页面
-│   │   ├── app.js         # JavaScript 逻辑
-│   │   └── style.css      # 样式表
-│   └── web_server.sh      # 启动脚本
-├── deployment/             # 生产部署配置 (NEW!)
-│   ├── DEPLOYMENT.md      # 部署文档
-│   ├── nginx_bot.conf     # Nginx 配置
-│   ├── mybot-web.service  # Systemd 服务
-│   └── env.web.example    # 环境变量模板
+├── web/                    # Web 管理界面
+│   ├── web_api.py           # FastAPI 后端
+│   └── frontend/            # Vite 前端
+│       ├── index.html
+│       ├── package.json
+│       ├── vite.config.js
+│       └── src/
+│           ├── App.jsx
+│           └── ...
+├── deployment/             # 生产部署配置
+│   ├── DEPLOYMENT.md        # 部署文档
+│   ├── nginx_bot.conf       # Nginx 配置
+│   ├── mybot-web.service    # Systemd 服务
+│   └── env.web.example      # 环境变量模板
 ├── data/                   # 数据持久化目录
 │   ├── reminders_data.json
 │   ├── todo_data.json
 │   ├── eat_data.json
-│   └── ...              
-└── deploy.sh              # 一键部署脚本
+│   └── ...
+└── napcat_qq_data/          # NapCat 数据目录
 ```
+
 
 
 ## 🙏 致谢
@@ -200,6 +209,6 @@ MyBot/
 
 **⭐ 如果这个项目对你有帮助，请给个 Star！⭐**
 
-Made with ❤️ by [Aununo]
+Made with ❤️ by Aununo
 
 </div>
