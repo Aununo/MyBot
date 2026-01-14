@@ -11,12 +11,20 @@ if [ ! -d "web" ]; then
     exit 1
 fi
 
-# 检查 Python 依赖
+# 检查 Python 依赖（使用独立虚拟环境，避免系统环境限制）
 echo "📦 检查依赖..."
-python3 -c "import fastapi, uvicorn, psutil, httpx" 2>/dev/null
+VENV_DIR=".venv-web"
+if [ ! -d "$VENV_DIR" ]; then
+    python3 -m venv "$VENV_DIR"
+fi
+
+PY_BIN="$VENV_DIR/bin/python"
+PIP_BIN="$VENV_DIR/bin/pip"
+
+$PY_BIN -c "import fastapi, uvicorn, psutil, httpx" 2>/dev/null
 if [ $? -ne 0 ]; then
     echo "⚠️  检测到缺少依赖，正在安装..."
-    pip3 install fastapi uvicorn[standard] python-multipart psutil httpx
+    $PIP_BIN install fastapi uvicorn[standard] python-multipart psutil httpx
 fi
 
 # 切换到 web 目录
@@ -34,4 +42,4 @@ echo "================================"
 echo ""
 
 # 使用 uvicorn 启动
-python3 -m uvicorn web_api:app --host 0.0.0.0 --port 8000 --reload
+$PY_BIN -m uvicorn web_api:app --host 0.0.0.0 --port 8000 --reload
