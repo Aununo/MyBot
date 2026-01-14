@@ -17,5 +17,3 @@ web/__pycache__
 web/frontend/node_modules
 
 deployment/nginx_bot.conf
-
-web/web_api.py
