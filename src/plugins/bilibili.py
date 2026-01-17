@@ -33,6 +33,12 @@ PROMPT_RE = re.compile(r'"prompt":"([^"]+)"')
 BILI_SESSDATA = os.getenv("BILI_SESSDATA", "").strip()
 BILI_BILI_JCT = os.getenv("BILI_BILI_JCT", "").strip()
 BILI_DEDEUSERID = os.getenv("BILI_DEDEUSERID", "").strip()
+BILI_PROXY_FORCE_HTTPS = os.getenv("BILI_PROXY_FORCE_HTTPS", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 BILI_PROXY_BASE_URL = os.getenv("BILI_PROXY_BASE_URL", "").strip().rstrip("/")
 BILI_PROXY_TTL = int(os.getenv("BILI_PROXY_TTL", "3600"))
 
@@ -106,8 +112,20 @@ def save_proxy_cache(cache: dict) -> None:
     proxy_file.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def normalize_proxy_base_url(base_url: str) -> str:
+    if not base_url:
+        return ""
+    base_url = base_url.strip().rstrip("/")
+    if "://" not in base_url:
+        return f"https://{base_url}" if BILI_PROXY_FORCE_HTTPS else f"http://{base_url}"
+    if BILI_PROXY_FORCE_HTTPS and base_url.startswith("http://"):
+        return f"https://{base_url[len('http://'):]}"
+    return base_url
+
+
 def store_proxy_link(play_url: str) -> Optional[str]:
-    if not BILI_PROXY_BASE_URL:
+    base_url = normalize_proxy_base_url(BILI_PROXY_BASE_URL)
+    if not base_url:
         return None
     now = int(time.time())
     cache = load_proxy_cache()
@@ -123,7 +141,7 @@ def store_proxy_link(play_url: str) -> Optional[str]:
         "expires_at": now + BILI_PROXY_TTL,
     }
     save_proxy_cache(cache)
-    return f"{BILI_PROXY_BASE_URL}/bili/proxy/{token}"
+    return f"{base_url}/bili/proxy/{token}"
 
 
 def mixin_key(img_key: str, sub_key: str) -> str:
@@ -501,19 +519,22 @@ def build_forward_nodes(
         proxy_url = store_proxy_link(play_url)
 
     if proxy_url or play_url:
+        proxy_text = proxy_url or play_url
+        if proxy_url:
+            proxy_text = f"{proxy_text}\n有效期: {BILI_PROXY_TTL}s"
         nodes.append(
             {
                 "type": "node",
                 "data": {
                     "uin": str(bot.self_id),
-                    "content": proxy_url or play_url,
+                    "content": proxy_text,
                 },
             }
         )
 
     fallback_lines = [header_text, "", desc_text]
     if proxy_url or play_url:
-        fallback_lines.append(proxy_url or play_url)
+        fallback_lines.append(proxy_text)
     fallback_text = "\n".join(fallback_lines)
 
     return nodes, fallback_text

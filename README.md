@@ -80,6 +80,10 @@ chmod +x deploy.sh
 curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && chmod +x napcat.sh
 
 bash napcat.sh # 按照指引安装即可
+
+cd ~/Napcat/opt/QQ
+
+xvfb-run -a qq --no-sandbox
 ```
 
 - 安装 Nonebot
