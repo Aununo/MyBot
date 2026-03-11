@@ -5,34 +5,29 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![NoneBot](https://img.shields.io/badge/NoneBot-2.4.3-green.svg)](https://nonebot.dev/)
 [![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-red.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-Ready-brightgreen.svg)](docker-compose.yml)
 
-基于 NoneBot2 和 NapCat 的功能丰富的 QQ 机器人，支持提醒、待办事项、天气查询等多种实用功能。
+基于 NoneBot2、NapCat 与 OpenClaw Bridge 的 QQ 机器人，面向宿主机 / venv 运行场景，支持提醒、待办、天气、B站解析以及 OpenClaw Agent 对话能力。
 
-[快速开始](#-快速开始) • [功能特性](#-功能特性) • [插件列表](#-插件列表) • [常用命令](#-常用命令)
+[快速开始](#-快速开始) • [功能特性](#-功能特性) • [插件列表](#-插件列表) • [项目结构](#-项目结构)
 
 </div>
 
-
-
 ## ✨ 功能特性
 
-- **Docker 部署** - 一键部署，无需手动配置
-- **丰富插件** - 若干内置插件，覆盖学习、生活、娱乐
-- **OpenClaw Bridge** - 可将 QQ 消息桥接到 OpenClaw，支持更强的 Agent/LLM 对话能力
+- **宿主机运行优先** - 不再主打 Docker，默认以本机 Python 环境运行
+- **OpenClaw Bridge** - 可将 QQ 消息桥接到 OpenClaw，支持更强的 Agent / LLM 对话能力
+- **丰富插件** - 内置提醒、待办、课表、天气、图片、B站解析等功能
 - **数据持久化** - 自动保存数据，重启不丢失
-- **Web 管理界面** - 现代化的可视化管理面板，支持远程管理
-- **易于扩展** - 模块化设计，轻松添加自定义插件
-- **状态监控** - 实时查看 CPU、内存、运行状态
+- **易于扩展** - 模块化设计，便于继续添加自定义插件
+- **状态监控** - 支持基础状态查询与运行情况检查
 
 ## 📦 插件列表
 
 ### 官方插件
 - **apscheduler** - 定时任务调度支持
-- **status** - 详细系统状态监控（`/status`）
+- **status** - 系统状态监控（`/status`）
 
 ### 自定义插件
-
 - **help** - 查看所有命令帮助 (`/help`)
 - **ping** - 快速状态检查 (`/ping`)
 - **schedule** - 个人课程表管理 (`/今日课表`)
@@ -52,57 +47,60 @@
 - **usage** - 查看命令使用情况（`/usage`）
 - **openclaw_bridge** - OpenClaw 对话桥接（群聊 @机器人 / 私聊可触发）
 
-
 ## 🚀 快速开始
 
 ### 前置要求
 
+- Linux / WSL2 / macOS
+- Python 3.10+
 - Git
-- Linux/MacOS 或 Windows WSL2
+- 已安装并可使用的 QQ 协议端（如 NapCat）
+- **本机可直接调用 `openclaw` 命令**（若要使用 OpenClaw Bridge）
 
-### 一键部署
+### 1. 克隆项目
 
 ```bash
-# 1. 克隆项目
-git clone https://github.com/yourusername/MyBot.git
+git clone https://github.com/Aununo/MyBot.git
 cd MyBot
-
-# 2. 运行一键部署脚本
-chmod +x deploy.sh
-./deploy.sh
-
-# 3. 按提示完成配置，扫码登录即可使用
 ```
 
-### 手动部署
-
-- 安装 Napcat
+### 2. 创建虚拟环境并安装依赖
 
 ```bash
-curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh && chmod +x napcat.sh
-
-bash napcat.sh # 按照指引安装即可
-
-cd ~/Napcat/opt/QQ
-
-xvfb-run -a qq --no-sandbox
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-- 安装 Nonebot
+### 3. 配置环境变量
 
-详情请见 [nonebot 官方文档](https://nonebot.dev/docs/quick-start)
-
-
-- 通信
-
-修改 nonebot 的 `.env.prod`：
-
+```bash
+cp env.example .env
 ```
-PORT = 如果 8080 端口被占用，根据你的需要更改
+
+至少需要根据你的实际环境修改：
+- `SUPERUSERS`
+- `PORT`
+- `ONEBOT_WS_URLS` / 反向 WebSocket 对接配置
+
+如果要启用 OpenClaw Bridge，建议同时关注：
+- `OPENCLAW_AGENT_ID`
+- `OPENCLAW_BRIDGE_USE_LOCAL`
+- `OPENCLAW_BRIDGE_TIMEOUT`
+- `OPENCLAW_AUDIO_MODE`
+- `OPENCLAW_IMAGE_MODE`
+
+### 4. 配置 NapCat / OneBot 反向 WebSocket
+
+NoneBot 侧监听地址示例：
+
+```env
+PORT=8080
 ONEBOT_ACCESS_TOKEN='temp123456'
 ```
 
-此处为Napcat代理相关配置，url中的端口需与 nonebot 的 PORT 一致，token 与 nonebot 的 ONEBOT_ACCESS_TOKEN 一致。
+NapCat 侧示例配置：
 
 ```json
 {
@@ -114,11 +112,11 @@ ONEBOT_ACCESS_TOKEN='temp123456'
       {
         "name": "nonebot",
         "enable": true,
-        "url": "ws://127.0.0.1:8080/onebot/v11/ws", 
+        "url": "ws://127.0.0.1:8080/onebot/v11/ws",
         "messagePostFormat": "array",
         "reportSelfMessage": true,
         "reconnectInterval": 5000,
-        "token": "temp123456", 
+        "token": "temp123456",
         "debug": false,
         "heartInterval": 30000
       }
@@ -130,91 +128,60 @@ ONEBOT_ACCESS_TOKEN='temp123456'
 }
 ```
 
-## 🌐 Web 管理界面
+### 5. 启动机器人
 
-全新的现代化 Web 管理面板，让您随时随地管理机器人！
-
-详见 [deployment/DEPLOYMENT.md](deployment/DEPLOYMENT.md) 完整测试与部署指南。
+```bash
+source .venv/bin/activate
+python bot.py
+```
 
 ## 🔧 常用命令
 
 ```bash
-# 查看实时日志 [最近100行]
-docker compose logs -f [--tail 100]
+# 启动
+source .venv/bin/activate
+python bot.py
 
-# 重启服务
-docker compose restart
+# 重新安装依赖
+pip install -r requirements.txt
 
-# 停止服务
-docker compose down
-
-# 重新构建
-docker compose up --build -d
-
-# 备份数据
-cp -r data ~/backup_$(date +%Y%m%d)
+# 语法检查
+python -m compileall src bot.py
 ```
 
 ## 📁 项目结构
 
-```
+```text
 MyBot/
 ├── bot.py                  # NoneBot 入口文件
 ├── pyproject.toml          # 项目配置
 ├── requirements.txt        # Python 依赖
-├── docker-compose.yml      # Docker Compose 配置
-├── Dockerfile              # Docker 镜像构建
 ├── env.example             # 环境变量模板
-├── deploy.sh               # 一键部署脚本
-├── web_server.sh           # Web 管理面板启动脚本
 ├── README.md               # 项目说明
 ├── LICENSE                 # 许可证
 ├── src/
-│   └── plugins/            # 自定义插件目录
-│       ├── bilibili.py
-│       ├── summary.py
+│   └── plugins/
+│       ├── openclaw_bridge.py
+│       ├── _openclaw_bridge_audio.py
+│       ├── _openclaw_bridge_images.py
+│       ├── _openclaw_bridge_prompts.py
+│       ├── _openclaw_bridge_registry.py
+│       ├── _openclaw_bridge_text.py
+│       ├── remind.py
+│       ├── todo.py
 │       ├── weather.py
 │       └── ...
-├── web/                    # Web 管理界面
-│   ├── web_api.py           # FastAPI 后端
-│   └── frontend/            # Vite 前端
-│       ├── index.html
-│       ├── package.json
-│       ├── vite.config.js
-│       └── src/
-│           ├── App.jsx
-│           └── ...
-├── deployment/             # 生产部署配置
-│   ├── DEPLOYMENT.md        # 部署文档
-│   ├── nginx_bot.conf       # Nginx 配置
-│   ├── mybot-web.service    # Systemd 服务
-│   └── env.web.example      # 环境变量模板
 ├── data/                   # 数据持久化目录
-│   ├── reminders_data.json
-│   ├── todo_data.json
-│   ├── eat_data.json
-│   └── ...
-└── napcat_qq_data/          # NapCat 数据目录
+└── napcat_qq_data/         # NapCat 数据目录
 ```
-
-
 
 ## 🙏 致谢
 
-- [NoneBot2](https://nonebot.dev/) - 优秀的 Python 异步机器人框架
+- [NoneBot2](https://nonebot.dev/) - Python 异步机器人框架
 - [NapCat](https://github.com/NapNeko/NapCatQQ) - QQ 协议端
-- [OneBot](https://onebot.dev/) - 聊天机器人应用接口标准
+- [OneBot](https://onebot.dev/) - 聊天机器人接口标准
+- [OpenClaw](https://github.com/openclaw/openclaw) - Agent / LLM 系统能力支持
 
 ## 📄 许可证
 
 本项目 **保留所有权利**，详见 [LICENSE](LICENSE) 文件。
-
-
-
-<div align="center">
-
-**⭐ 如果这个项目对你有帮助，请给个 Star！⭐**
-
-Made with ❤️ by Aununo
-
-</div>
