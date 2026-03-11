@@ -23,7 +23,6 @@ def extract_image_urls_from_segments(segments) -> list[str]:
         except Exception:
             continue
 
-    # 去重保序
     out: list[str] = []
     seen = set()
     for u in urls:

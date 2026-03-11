@@ -1,12 +1,13 @@
 <div align="center">
 
-# 🤖 MyBot
+# 🦀MyBot
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![NoneBot](https://img.shields.io/badge/NoneBot-2.4.3-green.svg)](https://nonebot.dev/)
-[![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-red.svg)](LICENSE)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-Bridge-orange.svg)](https://github.com/openclaw/openclaw)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-基于 NoneBot2、NapCat 与 OpenClaw Bridge 的 QQ 机器人，面向宿主机 / venv 运行场景，支持提醒、待办、天气、B站解析以及 OpenClaw Agent 对话能力。
+基于 NoneBot2、NapCat 与 OpenClaw Bridge 的 QQ 机器人，支持丰富功能插件以及 Agent 对话能力。
 
 [快速开始](#-快速开始) • [功能特性](#-功能特性) • [插件列表](#-插件列表) • [项目结构](#-项目结构)
 
@@ -14,12 +15,11 @@
 
 ## ✨ 功能特性
 
-- **宿主机运行优先** - 不再主打 Docker，默认以本机 Python 环境运行
-- **OpenClaw Bridge** - 可将 QQ 消息桥接到 OpenClaw，支持更强的 Agent / LLM 对话能力
 - **丰富插件** - 内置提醒、待办、课表、天气、图片、B站解析等功能
 - **数据持久化** - 自动保存数据，重启不丢失
 - **易于扩展** - 模块化设计，便于继续添加自定义插件
 - **状态监控** - 支持基础状态查询与运行情况检查
+- **OpenClaw Bridge** - 可将 QQ 消息桥接到 OpenClaw，支持更强的 Agent / LLM 对话能力
 
 ## 📦 插件列表
 
@@ -55,7 +55,7 @@
 - Python 3.10+
 - Git
 - 已安装并可使用的 QQ 协议端（如 NapCat）
-- **本机可直接调用 `openclaw` 命令**（若要使用 OpenClaw Bridge）
+- 本机可直接调用 `openclaw` 命令
 
 ### 1. 克隆项目
 
@@ -162,11 +162,6 @@ MyBot/
 ├── src/
 │   └── plugins/
 │       ├── openclaw_bridge.py
-│       ├── _openclaw_bridge_audio.py
-│       ├── _openclaw_bridge_images.py
-│       ├── _openclaw_bridge_prompts.py
-│       ├── _openclaw_bridge_registry.py
-│       ├── _openclaw_bridge_text.py
 │       ├── remind.py
 │       ├── todo.py
 │       ├── weather.py
@@ -184,4 +179,4 @@ MyBot/
 
 ## 📄 许可证
 
-本项目 **保留所有权利**，详见 [LICENSE](LICENSE) 文件。
+本项目基于 **MIT License** 开源，详见 [LICENSE](LICENSE) 文件。
