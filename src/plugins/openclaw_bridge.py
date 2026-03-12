@@ -54,7 +54,7 @@ from ._openclaw_bridge_registry import (
 
 bridge = on_message(priority=20, block=True)
 
-OPENCLAW_AGENT_ID = os.getenv("OPENCLAW_AGENT_ID", "qqbridge")
+OPENCLAW_AGENT_ID = os.getenv("OPENCLAW_AGENT_ID", "main")
 OPENCLAW_BRIDGE_USE_LOCAL = os.getenv("OPENCLAW_BRIDGE_USE_LOCAL", "false").strip().lower() in {"1", "true", "yes", "on"}
 OPENCLAW_TIMEOUT = int(os.getenv("OPENCLAW_BRIDGE_TIMEOUT", "180"))
 OPENCLAW_THINKING = os.getenv("OPENCLAW_BRIDGE_THINKING", "medium")
