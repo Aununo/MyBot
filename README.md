@@ -38,8 +38,6 @@
 - **weather** - 城市天气查询 (`/天气 北京`)
 - **latex** - LaTeX 公式渲染 (`/latex E=mc^2`)
 - **pic** - 图片管理 (`/savepic`, `/sendpic`)
-- **summary** - 群聊内容总结 (`/总结`)
-- **copywriting** - 文案生成 (`/文案`)
 - **quote** - 消息截图 (`/save`)
 - **bilibili** - B 站视频解析（群聊自动触发）
 - **relay** - 群内接龙（`/接龙`）
@@ -82,7 +80,7 @@ cp env.example .env
 至少需要根据你的实际环境修改：
 - `SUPERUSERS`
 - `PORT`
-- `ONEBOT_WS_URLS` / 反向 WebSocket 对接配置
+- `ONEBOT_ACCESS_TOKEN`
 
 如果要启用 OpenClaw Bridge，建议同时关注：
 - `OPENCLAW_AGENT_ID`
@@ -93,9 +91,10 @@ cp env.example .env
 
 ### 4. 配置 NapCat / OneBot 反向 WebSocket
 
-NoneBot 侧监听地址示例：
+NoneBot 侧 `.env` 示例：
 
 ```env
+HOST=127.0.0.1
 PORT=8080
 ONEBOT_ACCESS_TOKEN='temp123456'
 ```
