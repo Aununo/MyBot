@@ -173,18 +173,22 @@ def format_course_info(course: Dict) -> str:
     end_time = end_time_full.split('-')[-1] if end_time_full else ''
     time_str = f"{start_time}-{end_time}" if start_time and end_time else ""
 
-    weeks = course.get('weeks', [])
+    weeks = sorted(set(course.get('weeks', [])))
     
     if not weeks:
         weeks_str = "无"
-    elif len(weeks) == 1:
-        weeks_str = str(weeks[0])
     else:
-        is_consecutive = all(weeks[i] == weeks[i-1] + 1 for i in range(1, len(weeks)))
-        if is_consecutive:
-            weeks_str = f"{weeks[0]}-{weeks[-1]}"
-        else:
-            weeks_str = ",".join(map(str, weeks))
+        ranges = []
+        range_start = weeks[0]
+        prev = weeks[0]
+        for w in weeks[1:]:
+            if w == prev + 1:
+                prev = w
+                continue
+            ranges.append(f"{range_start}-{prev}" if range_start != prev else str(range_start))
+            range_start = prev = w
+        ranges.append(f"{range_start}-{prev}" if range_start != prev else str(range_start))
+        weeks_str = ",".join(ranges)
 
     return (
         f"📕 {course.get('name', '未知课程')}\n"
@@ -194,6 +198,67 @@ def format_course_info(course: Dict) -> str:
         f"🗓️ 第{weeks_str}周\n"
         "--------------------\n"
     )
+
+
+def parse_weeks(weeks_str: str) -> List[int]:
+    weeks: List[int] = []
+    for part in [p.strip() for p in weeks_str.split(',') if p.strip()]:
+        if '-' in part:
+            start_s, end_s = [x.strip() for x in part.split('-', 1)]
+            start_w = int(start_s)
+            end_w = int(end_s)
+            if start_w > end_w:
+                raise ValueError("周数范围起始不能大于结束")
+            weeks.extend(range(start_w, end_w + 1))
+        else:
+            weeks.append(int(part))
+
+    weeks = sorted(set(weeks))
+    if not weeks:
+        raise ValueError("周数不能为空")
+    if weeks[0] < 1 or weeks[-1] > 52:
+        raise ValueError("周数必须在 1-52 之间")
+    return weeks
+
+
+def parse_course_line(text: str) -> Dict:
+    parts = [p.strip() for p in text.split("|")]
+    if len(parts) != 7:
+        raise ValueError("格式错误！请使用：课程名|教师|地点|星期几|开始节次|结束节次|周数")
+
+    name, teacher, location, day_str, start_str, end_str, weeks_str = parts
+
+    try:
+        day = int(day_str)
+    except ValueError:
+        raise ValueError(f"星期几必须是数字，当前值：{day_str}")
+
+    if day < 1 or day > 7:
+        raise ValueError("星期几必须在 1-7 之间")
+
+    try:
+        start_section = int(start_str)
+        end_section = int(end_str)
+    except ValueError:
+        raise ValueError(f"节次必须是数字，当前值：{start_str}, {end_str}")
+
+    if start_section < 1 or end_section > 12 or start_section > end_section:
+        raise ValueError("节次必须在 1-12 之间，且开始节次不能大于结束节次")
+
+    try:
+        weeks = parse_weeks(weeks_str)
+    except ValueError as exc:
+        raise ValueError(f"周数格式错误，请使用范围(1-16)、列表(1,3,5)或混合格式(1-5,7-16)，当前值：{weeks_str}；{exc}")
+
+    return {
+        "name": name,
+        "teacher": teacher,
+        "location": location,
+        "day": day,
+        "start_section": start_section,
+        "end_section": end_section,
+        "weeks": weeks,
+    }
 
 @add_course.handle()
 async def _(event: MessageEvent, args: Message = CommandArg()):
@@ -205,71 +270,68 @@ async def _(event: MessageEvent, args: Message = CommandArg()):
             "/添加课程 课程名|教师|地点|星期几|开始节次|结束节次|周数\n\n"
             "示例：\n"
             "/添加课程 高等数学|张老师|A101|1|1|2|1-16\n"
-            "/添加课程 大学英语|李老师|B202|3|5|6|1,3,5,7,9\n\n"
+            "/添加课程 大学英语|李老师|B202|3|5|6|1,3,5,7,9\n"
+            "/添加课程 商务沟通英语|杜佳洋|第二教学楼215|1|3|4|1-5,7-16\n\n"
             "说明：\n"
             "- 星期几：1-7（1=周一，7=周日）\n"
             "- 节次：1-12\n"
-            "- 周数：支持范围(1-16)或列表(1,3,5)"
+            "- 周数：支持范围(1-16)、列表(1,3,5)和混合格式(1-5,7-16)\n"
+            "- 支持批量导入：一次发送多行 /添加课程 ..."
         )
         await add_course.finish(help_msg)
-    
-    parts = [p.strip() for p in text.split("|")]
-    if len(parts) != 7:
-        await add_course.finish("❌ 格式错误！请使用：课程名|教师|地点|星期几|开始节次|结束节次|周数")
-    
-    name, teacher, location, day_str, start_str, end_str, weeks_str = parts
-    
-    try:
-        day = int(day_str)
-    except ValueError:
-        await add_course.finish(f"❌ 星期几必须是数字，当前值：{day_str}")
-        return
-    
-    if day < 1 or day > 7:
-        await add_course.finish("❌ 星期几必须在 1-7 之间")
-        return
-    
-    try:
-        start_section = int(start_str)
-        end_section = int(end_str)
-    except ValueError:
-        await add_course.finish(f"❌ 节次必须是数字，当前值：{start_str}, {end_str}")
-        return
-    
-    if start_section < 1 or end_section > 12 or start_section > end_section:
-        await add_course.finish("❌ 节次必须在 1-12 之间，且开始节次不能大于结束节次")
-        return
-    
-    try:
-        weeks = []
-        if "-" in weeks_str:
-            start_week, end_week = weeks_str.split("-")
-            weeks = list(range(int(start_week), int(end_week) + 1))
-        else:
-            weeks = [int(w.strip()) for w in weeks_str.split(",")]
-    except ValueError:
-        await add_course.finish(f"❌ 周数格式错误，请使用范围(1-16)或列表(1,3,5)格式，当前值：{weeks_str}")
-        return
-    
-    course = {
-        "name": name,
-        "teacher": teacher,
-        "location": location,
-        "day": day,
-        "start_section": start_section,
-        "end_section": end_section,
-        "weeks": weeks
-    }
-    
+
+    raw_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    normalized_lines = []
+    for line in raw_lines:
+        if line.startswith("/添加课程"):
+            line = line[len("/添加课程"):].strip()
+        elif line.startswith("添加课程"):
+            line = line[len("添加课程"):].strip()
+        normalized_lines.append(line)
+
+    if not normalized_lines:
+        await add_course.finish("❌ 没有检测到可导入的课程内容")
+
     data = load_schedule_data()
-    data["courses"].append(course)
-    if save_schedule_data(data):
-        await add_course.finish(
-            f"✅ 课程添加成功！\n\n"
-            f"{format_course_info(course)}"
+    added_courses = []
+    errors = []
+
+    for idx, line in enumerate(normalized_lines, start=1):
+        try:
+            course = parse_course_line(line)
+            data["courses"].append(course)
+            added_courses.append(course)
+        except ValueError as exc:
+            errors.append(f"第{idx}行：{exc}")
+
+    if added_courses and save_schedule_data(data):
+        if len(added_courses) == 1 and not errors:
+            await add_course.finish(
+                f"✅ 课程添加成功！\n\n"
+                f"{format_course_info(added_courses[0])}"
+            )
+            return
+
+        preview = "\n".join(
+            f"- {c['name']}｜周{WEEKDAY_MAP[c['day']-1]} 第{c['start_section']}-{c['end_section']}节｜第{format_course_info(c).split('🗓️ 第',1)[1].split('周',1)[0]}周"
+            for c in added_courses[:8]
         )
-    else:
+        more = ""
+        if len(added_courses) > 8:
+            more = f"\n- 其余 {len(added_courses) - 8} 门已省略显示"
+
+        msg = f"✅ 成功导入 {len(added_courses)} 门课程"
+        if preview:
+            msg += f"\n\n{preview}{more}"
+        if errors:
+            msg += f"\n\n⚠️ 以下课程导入失败：\n" + "\n".join(errors[:10])
+            if len(errors) > 10:
+                msg += f"\n... 还有 {len(errors) - 10} 条错误未显示"
+        await add_course.finish(msg)
+    elif added_courses:
         await add_course.finish("❌ 保存失败，请稍后重试")
+    else:
+        await add_course.finish("❌ 导入失败：\n" + "\n".join(errors[:10]))
 
 @delete_course.handle()
 async def _(event: MessageEvent, args: Message = CommandArg()):
