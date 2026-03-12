@@ -12,7 +12,7 @@ import html
 
 import httpx
 from nonebot import on_message, logger
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment
+from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 
 
 BILI_VIDEO_API = "https://api.bilibili.com/x/web-interface/view"
@@ -39,7 +39,7 @@ BILI_PROXY_FORCE_HTTPS = os.getenv("BILI_PROXY_FORCE_HTTPS", "true").strip().low
     "yes",
     "on",
 }
-BILI_PROXY_BASE_URL = os.getenv("BILI_PROXY_BASE_URL", "").strip().rstrip("/")
+BILI_PROXY_BASE_URL = "https://bili.aununo.xyz"
 BILI_PROXY_TTL = int(os.getenv("BILI_PROXY_TTL", "3600"))
 
 WBI_MIXIN_TAB = [
@@ -107,6 +107,27 @@ def load_proxy_cache() -> dict:
         return {}
 
 
+def cleanup_proxy_cache(cache: Optional[dict] = None) -> dict:
+    now = int(time.time())
+    current = cache if cache is not None else load_proxy_cache()
+    cleaned = {
+        key: value
+        for key, value in current.items()
+        if isinstance(value, dict) and value.get("expires_at", 0) > now and value.get("url")
+    }
+    if cleaned != current:
+        save_proxy_cache(cleaned)
+    return cleaned
+
+
+def get_proxy_target(token: str) -> Optional[str]:
+    cache = cleanup_proxy_cache()
+    item = cache.get(token)
+    if not isinstance(item, dict):
+        return None
+    return sanitize_url(str(item.get("url", "") or "")) or None
+
+
 def save_proxy_cache(cache: dict) -> None:
     proxy_file.parent.mkdir(parents=True, exist_ok=True)
     proxy_file.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -128,20 +149,14 @@ def store_proxy_link(play_url: str) -> Optional[str]:
     if not base_url:
         return None
     now = int(time.time())
-    cache = load_proxy_cache()
-    # 清理过期
-    cache = {
-        key: value
-        for key, value in cache.items()
-        if isinstance(value, dict) and value.get("expires_at", 0) > now
-    }
+    cache = cleanup_proxy_cache()
     token = secrets.token_urlsafe(12)
     cache[token] = {
         "url": play_url,
         "expires_at": now + BILI_PROXY_TTL,
     }
     save_proxy_cache(cache)
-    return f"{base_url}/bili/proxy/{token}"
+    return f"{base_url}/bili/play/{token}.mp4"
 
 
 def mixin_key(img_key: str, sub_key: str) -> str:
@@ -461,83 +476,39 @@ async def fetch_play_url(
     return sanitize_url(durl[0].get("url"))
 
 
-def build_forward_nodes(
-    bot: Bot,
-    info: dict,
-    video_url: str,
-    play_url: Optional[str],
-) -> Tuple[list, str]:
+def build_bili_reply(bot_uin: str, info: dict, video_url: str, play_url: Optional[str]) -> Tuple[list, str, Optional[str]]:
     title = info.get("title", "")
     owner = info.get("owner", {}) or {}
     stat = info.get("stat", {}) or {}
     desc = normalize_description(info.get("desc", ""))
 
-    header_lines = [
+    proxy_url = None
+    if play_url:
+        proxy_url = store_proxy_link(play_url)
+        logger.info(f"bilibili proxy build base={BILI_PROXY_BASE_URL!r} play={bool(play_url)} proxy={proxy_url or ''}")
+        if proxy_url:
+            logger.info(f"bilibili proxy token stored -> {proxy_url}")
+        else:
+            logger.warning("bilibili proxy unavailable")
+
+    header_text = "\n".join([
         f"标题: {title}",
         f"UP主: {owner.get('name', '未知')}",
         f"点赞: {format_count(stat.get('like'))}  投币: {format_count(stat.get('coin'))}",
         f"收藏: {format_count(stat.get('favorite'))}  转发: {format_count(stat.get('share'))}",
         f"观看: {format_count(stat.get('view'))}  弹幕: {format_count(stat.get('danmaku'))}",
-    ]
-    header_text = "\n".join(header_lines)
-
-    cover_url = info.get("pic")
-    nodes = [
-        {
-            "type": "node",
-            "data": {
-                "uin": str(bot.self_id),
-                "content": header_text,
-            },
-        }
-    ]
-
-    if cover_url:
-        nodes.append(
-            {
-                "type": "node",
-                "data": {
-                    "uin": str(bot.self_id),
-                    "content": Message(MessageSegment.image(cover_url)),
-                },
-            }
-        )
-
+    ])
     desc_text = f"简介: {desc}\n{video_url}"
-    nodes.append(
-        {
-            "type": "node",
-            "data": {
-                "uin": str(bot.self_id),
-                "content": desc_text,
-            },
-        }
-    )
+    proxy_text = f"{proxy_url}\n有效期: {BILI_PROXY_TTL}s" if proxy_url else "未生成代理直链，请检查 bilibili_server 与代理配置。"
 
-    proxy_url = None
-    if play_url:
-        proxy_url = store_proxy_link(play_url)
+    nodes = [
+        {"type": "node", "data": {"uin": bot_uin, "content": header_text}},
+        {"type": "node", "data": {"uin": bot_uin, "content": desc_text}},
+        {"type": "node", "data": {"uin": bot_uin, "content": proxy_text}},
+    ]
 
-    if proxy_url or play_url:
-        proxy_text = proxy_url or play_url
-        if proxy_url:
-            proxy_text = f"{proxy_text}\n有效期: {BILI_PROXY_TTL}s"
-        nodes.append(
-            {
-                "type": "node",
-                "data": {
-                    "uin": str(bot.self_id),
-                    "content": proxy_text,
-                },
-            }
-        )
-
-    fallback_lines = [header_text, "", desc_text]
-    if proxy_url or play_url:
-        fallback_lines.append(proxy_text)
-    fallback_text = "\n".join(fallback_lines)
-
-    return nodes, fallback_text
+    fallback_text = "\n\n".join([header_text, desc_text, proxy_text])
+    return nodes, fallback_text, proxy_url
 
 
 bilibili = on_message(priority=20, block=False)
@@ -592,9 +563,10 @@ async def handle_bilibili(bot: Bot, event: MessageEvent):
         if resolved_bvid and resolved_cid:
             play_url = await fetch_play_url(client, resolved_bvid, resolved_cid)
 
-        nodes, fallback_text = build_forward_nodes(bot, info, video_url, play_url)
+        nodes, fallback_text, proxy_url = build_bili_reply(str(bot.self_id), info, video_url, play_url)
         try:
             await bot.call_api("send_group_forward_msg", group_id=event.group_id, messages=nodes)
+            await bilibili.finish()
         except Exception as exc:
             logger.error(f"发送合并转发消息失败: {exc}")
             await bilibili.finish(fallback_text)

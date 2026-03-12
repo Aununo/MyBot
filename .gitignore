@@ -17,4 +17,5 @@ web/frontend/node_modules/
 
 src/plugins/eat_data.json
 src/plugins/usage_data.json
+src/plugins/bili_proxy.json
 
