@@ -1,18 +1,19 @@
 .venv
-
-data
-
-ignored
-
-napcat_qq_data
-
-src/plugins/__pycache__
-
-src/plugins/assets/
-
-web/__pycache__
+__pycache__/
+*.pyc
 
 .env
 
-web/frontend/node_modules
+logs/
+data/
+ignored/
+napcat_qq_data/
+
+src/plugins/__pycache__/
+src/plugins/assets/
+web/__pycache__/
+web/frontend/node_modules/
+
+src/plugins/eat_data.json
+src/plugins/usage_data.json
 
