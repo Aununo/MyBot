@@ -8,6 +8,7 @@ logs/
 data/
 ignored/
 napcat_qq_data/
+src/mybot.egg-info/
 
 src/plugins/__pycache__/
 src/plugins/assets/
