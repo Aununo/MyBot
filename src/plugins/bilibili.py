@@ -39,7 +39,7 @@ BILI_PROXY_FORCE_HTTPS = os.getenv("BILI_PROXY_FORCE_HTTPS", "true").strip().low
     "yes",
     "on",
 }
-BILI_PROXY_BASE_URL = os.getenv("BILI_PROXY_BASE_URL", "https://bili.aununo.xyz").strip()
+BILI_PROXY_BASE_URL = os.getenv("BILI_PROXY_BASE_URL", "https://aununo.xyz").strip()
 BILI_PROXY_TTL = int(os.getenv("BILI_PROXY_TTL", "3600"))
 
 WBI_MIXIN_TAB = [
@@ -62,6 +62,7 @@ data_dir = Path("/app/data")
 if not data_dir.exists():
     data_dir = plugin_dir
 proxy_file = data_dir / "bili_proxy.json"
+_forward_name_cache: dict[str, str] = {}
 
 
 def format_count(value: Optional[int]) -> str:
@@ -483,11 +484,31 @@ def normalize_media_url(url: str) -> str:
     return cleaned
 
 
-def make_forward_node(bot_uin: str, content: Any) -> dict:
+async def resolve_bot_forward_name(bot: Bot) -> str:
+    bot_uin = str(bot.self_id)
+    cached = _forward_name_cache.get(bot_uin)
+    if cached:
+        return cached
+
+    nickname = bot_uin
+    try:
+        info = await bot.call_api("get_login_info")
+        if isinstance(info, dict):
+            nickname = str(info.get("nickname") or bot_uin).strip() or bot_uin
+    except Exception as exc:
+        logger.warning(f"获取机器人昵称失败，使用 QQ 号代替: {exc}")
+
+    _forward_name_cache[bot_uin] = nickname
+    return nickname
+
+
+def make_forward_node(bot_uin: str, bot_name: str, content: Any) -> dict:
     return {
         "type": "node",
         "data": {
             "uin": bot_uin,
+            "name": bot_name,
+            "nickname": bot_name,
             "content": content,
         },
     }
@@ -505,7 +526,7 @@ def is_image_forward_node(node: Any) -> bool:
     return any(isinstance(seg, dict) and seg.get("type") == "image" for seg in content)
 
 
-def build_bili_reply(bot_uin: str, info: dict, video_url: str, play_url: Optional[str]) -> Tuple[list, str, Optional[str]]:
+def build_bili_reply(bot_uin: str, bot_name: str, info: dict, video_url: str, play_url: Optional[str]) -> Tuple[list, str, Optional[str]]:
     title = info.get("title", "")
     owner = info.get("owner", {}) or {}
     stat = info.get("stat", {}) or {}
@@ -531,11 +552,11 @@ def build_bili_reply(bot_uin: str, info: dict, video_url: str, play_url: Optiona
     desc_text = f"简介: {desc}\n{video_url}" if video_url else f"简介: {desc}"
     proxy_text = f"{proxy_url}\n有效期: {BILI_PROXY_TTL}s" if proxy_url else "未生成代理直链，请检查 bilibili_server 与代理配置。"
 
-    nodes = [make_forward_node(bot_uin, header_text)]
+    nodes = [make_forward_node(bot_uin, bot_name, header_text)]
     if cover_url:
-        nodes.append(make_forward_node(bot_uin, [{"type": "image", "data": {"file": cover_url}}]))
-    nodes.append(make_forward_node(bot_uin, desc_text))
-    nodes.append(make_forward_node(bot_uin, proxy_text))
+        nodes.append(make_forward_node(bot_uin, bot_name, [{"type": "image", "data": {"file": cover_url}}]))
+    nodes.append(make_forward_node(bot_uin, bot_name, desc_text))
+    nodes.append(make_forward_node(bot_uin, bot_name, proxy_text))
 
     fallback_text = "\n\n".join([header_text, desc_text, proxy_text])
     return nodes, fallback_text, proxy_url
@@ -595,19 +616,21 @@ async def handle_bilibili(bot: Bot, event: MessageEvent):
         if resolved_bvid and resolved_cid:
             play_url = await fetch_play_url(client, resolved_bvid, resolved_cid)
 
-        nodes, fallback_text, _proxy_url = build_bili_reply(str(bot.self_id), info, canonical_video_url, play_url)
+        bot_uin = str(bot.self_id)
+        bot_name = await resolve_bot_forward_name(bot)
+        nodes, fallback_text, _proxy_url = build_bili_reply(bot_uin, bot_name, info, canonical_video_url, play_url)
         try:
             await bot.call_api("send_group_forward_msg", group_id=event.group_id, messages=nodes)
-            await bilibili.finish()
+            return
         except Exception as exc:
             logger.error(f"发送合并转发消息失败: {exc}")
 
-            text_only_nodes = [node for node in nodes if not is_image_forward_node(node)]
-            if len(text_only_nodes) != len(nodes):
-                try:
-                    await bot.call_api("send_group_forward_msg", group_id=event.group_id, messages=text_only_nodes)
-                    await bilibili.finish()
-                except Exception as retry_exc:
-                    logger.error(f"图片节点降级发送失败: {retry_exc}")
+        text_only_nodes = [node for node in nodes if not is_image_forward_node(node)]
+        if len(text_only_nodes) != len(nodes):
+            try:
+                await bot.call_api("send_group_forward_msg", group_id=event.group_id, messages=text_only_nodes)
+                return
+            except Exception as retry_exc:
+                logger.error(f"图片节点降级发送失败: {retry_exc}")
 
-            await bilibili.finish(fallback_text)
+        await bilibili.finish(fallback_text)

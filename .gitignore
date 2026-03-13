@@ -1,21 +1,50 @@
-.venv
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
+# Virtual env / local env
+.venv/
+venv/
 .env
+.env.*
+!.env.example
 
+# Runtime logs / pid
 logs/
+*.log
+*.pid
+*.pid.lock
+
+# Runtime data (local only)
 data/
 ignored/
 napcat_qq_data/
-src/mybot.egg-info/
-
-src/plugins/__pycache__/
-src/plugins/assets/
-web/__pycache__/
-web/frontend/node_modules/
-
 src/plugins/eat_data.json
 src/plugins/usage_data.json
 src/plugins/bili_proxy.json
 
+# Build artifacts
+build/
+dist/
+*.egg-info/
+src/mybot.egg-info/
+
+# Tool caches / coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Project-specific generated dirs
+src/plugins/__pycache__/
+src/plugins/assets/
+web/__pycache__/
+web/frontend/node_modules/
