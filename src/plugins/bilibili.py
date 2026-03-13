@@ -7,7 +7,7 @@ import secrets
 import time
 import urllib.parse
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 import html
 
 import httpx
@@ -39,7 +39,7 @@ BILI_PROXY_FORCE_HTTPS = os.getenv("BILI_PROXY_FORCE_HTTPS", "true").strip().low
     "yes",
     "on",
 }
-BILI_PROXY_BASE_URL = "https://bili.aununo.xyz"
+BILI_PROXY_BASE_URL = os.getenv("BILI_PROXY_BASE_URL", "https://bili.aununo.xyz").strip()
 BILI_PROXY_TTL = int(os.getenv("BILI_PROXY_TTL", "3600"))
 
 WBI_MIXIN_TAB = [
@@ -476,11 +476,41 @@ async def fetch_play_url(
     return sanitize_url(durl[0].get("url"))
 
 
+def normalize_media_url(url: str) -> str:
+    cleaned = sanitize_url(url)
+    if cleaned.startswith("//"):
+        return f"https:{cleaned}"
+    return cleaned
+
+
+def make_forward_node(bot_uin: str, content: Any) -> dict:
+    return {
+        "type": "node",
+        "data": {
+            "uin": bot_uin,
+            "content": content,
+        },
+    }
+
+
+def is_image_forward_node(node: Any) -> bool:
+    if not isinstance(node, dict):
+        return False
+    data = node.get("data")
+    if not isinstance(data, dict):
+        return False
+    content = data.get("content")
+    if not isinstance(content, list):
+        return False
+    return any(isinstance(seg, dict) and seg.get("type") == "image" for seg in content)
+
+
 def build_bili_reply(bot_uin: str, info: dict, video_url: str, play_url: Optional[str]) -> Tuple[list, str, Optional[str]]:
     title = info.get("title", "")
     owner = info.get("owner", {}) or {}
     stat = info.get("stat", {}) or {}
     desc = normalize_description(info.get("desc", ""))
+    cover_url = normalize_media_url(str(info.get("pic", "") or ""))
 
     proxy_url = None
     if play_url:
@@ -498,14 +528,14 @@ def build_bili_reply(bot_uin: str, info: dict, video_url: str, play_url: Optiona
         f"收藏: {format_count(stat.get('favorite'))}  转发: {format_count(stat.get('share'))}",
         f"观看: {format_count(stat.get('view'))}  弹幕: {format_count(stat.get('danmaku'))}",
     ])
-    desc_text = f"简介: {desc}\n{video_url}"
+    desc_text = f"简介: {desc}\n{video_url}" if video_url else f"简介: {desc}"
     proxy_text = f"{proxy_url}\n有效期: {BILI_PROXY_TTL}s" if proxy_url else "未生成代理直链，请检查 bilibili_server 与代理配置。"
 
-    nodes = [
-        {"type": "node", "data": {"uin": bot_uin, "content": header_text}},
-        {"type": "node", "data": {"uin": bot_uin, "content": desc_text}},
-        {"type": "node", "data": {"uin": bot_uin, "content": proxy_text}},
-    ]
+    nodes = [make_forward_node(bot_uin, header_text)]
+    if cover_url:
+        nodes.append(make_forward_node(bot_uin, [{"type": "image", "data": {"file": cover_url}}]))
+    nodes.append(make_forward_node(bot_uin, desc_text))
+    nodes.append(make_forward_node(bot_uin, proxy_text))
 
     fallback_text = "\n\n".join([header_text, desc_text, proxy_text])
     return nodes, fallback_text, proxy_url
@@ -559,14 +589,25 @@ async def handle_bilibili(bot: Bot, event: MessageEvent):
 
         resolved_bvid = info.get("bvid") or bvid
         resolved_cid = info.get("cid")
+        canonical_video_url = video_url or (f"https://www.bilibili.com/video/{resolved_bvid}" if resolved_bvid else "")
+
         play_url = None
         if resolved_bvid and resolved_cid:
             play_url = await fetch_play_url(client, resolved_bvid, resolved_cid)
 
-        nodes, fallback_text, proxy_url = build_bili_reply(str(bot.self_id), info, video_url, play_url)
+        nodes, fallback_text, _proxy_url = build_bili_reply(str(bot.self_id), info, canonical_video_url, play_url)
         try:
             await bot.call_api("send_group_forward_msg", group_id=event.group_id, messages=nodes)
             await bilibili.finish()
         except Exception as exc:
             logger.error(f"发送合并转发消息失败: {exc}")
+
+            text_only_nodes = [node for node in nodes if not is_image_forward_node(node)]
+            if len(text_only_nodes) != len(nodes):
+                try:
+                    await bot.call_api("send_group_forward_msg", group_id=event.group_id, messages=text_only_nodes)
+                    await bilibili.finish()
+                except Exception as retry_exc:
+                    logger.error(f"图片节点降级发送失败: {retry_exc}")
+
             await bilibili.finish(fallback_text)
