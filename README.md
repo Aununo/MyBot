@@ -1,54 +1,112 @@
-# MyBot
+<div align="center">
 
-基于 **NoneBot2 + NapCat(OneBot V11) + OpenClaw Bridge** 的 QQ 机器人。
+# 🦀MyBot
 
-- 群聊/私聊命令插件（提醒、待办、课表、天气、图片等）
-- Bilibili 链接自动解析（合并转发样式）
-- 可桥接到 OpenClaw 做 Agent/LLM 对话
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![NoneBot](https://img.shields.io/badge/NoneBot-2.4.3-green.svg)](https://nonebot.dev/)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-Bridge-orange.svg)](https://github.com/openclaw/openclaw)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
----
+基于 NoneBot2、NapCat 与 OpenClaw Bridge 的 QQ 机器人，支持丰富功能插件以及 Agent 对话能力。
 
-## 1. 快速开始
+[快速开始](#-快速开始) • [功能特性](#-功能特性) • [插件列表](#-插件列表) • [项目结构](#-项目结构)
 
-### 1) 环境要求
+</div>
 
-- Linux / macOS / WSL2
+## ✨ 功能特性
+
+- **丰富插件** - 内置提醒、待办、课表、天气、图片、B站解析等功能
+- **数据持久化** - 自动保存数据，重启不丢失
+- **易于扩展** - 模块化设计，便于继续添加自定义插件
+- **状态监控** - 支持基础状态查询与运行情况检查
+- **OpenClaw Bridge** - 可将 QQ 消息桥接到 OpenClaw，支持更强的 Agent / LLM 对话能力
+
+## 📦 插件列表
+
+### 官方插件
+- **apscheduler** - 定时任务调度支持
+- **status** - 系统状态监控（`/status`）
+
+### 自定义插件
+- **help** - 查看所有命令帮助 (`/help`)
+- **ping** - 快速状态检查 (`/ping`)
+- **schedule** - 个人课程表管理 (`/今日课表`)
+- **remind** - 灵活的提醒功能 (`/remind`)
+- **todo** - 待办事项管理 (`/todo`)
+- **countdown** - 事件倒计时管理 (`/countdown`, `/倒计时`)
+- **eat** - 今天吃什么推荐 (`/android`, `/apple`)
+- **weather** - 城市天气查询 (`/天气 北京`)
+- **latex** - LaTeX 公式渲染 (`/latex E=mc^2`)
+- **pic** - 图片管理 (`/savepic`, `/sendpic`)
+- **quote** - 消息截图 (`/save`)
+- **bilibili** - B 站视频解析（群聊自动触发）
+- **email_notifier** - 检查邮箱新邮件（`/check_email`）
+- **openclaw_bridge** - OpenClaw 对话桥接（群聊 @机器人 / 私聊可触发）
+
+## 🚀 快速开始
+
+### 前置要求
+
+- Linux / WSL2 / macOS
 - Python 3.10+
-- 可用的 NapCat（OneBot V11）
+- Git
+- 已安装并可使用的 QQ 协议端（如 NapCat）
+- 本机可直接调用 `openclaw` 命令
 
-### 2) 安装
+### 1. 克隆项目
 
 ```bash
 git clone https://github.com/Aununo/MyBot.git
 cd MyBot
+```
+
+### 2. 创建虚拟环境并安装依赖
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+### 3. 配置环境变量
+
+```bash
 cp env.example .env
 ```
 
-### 3) 启动
+至少需要根据你的实际环境修改：
+- `SUPERUSERS`
+- `PORT`
+- `ONEBOT_ACCESS_TOKEN`
 
-```bash
-# 启动主 bot
-./start_mybot.sh
+如果要启用 OpenClaw Bridge，建议同时关注：
+- `OPENCLAW_AGENT_ID`
+- `OPENCLAW_BRIDGE_USE_LOCAL`
+- `OPENCLAW_BRIDGE_TIMEOUT`
+- `OPENCLAW_AUDIO_MODE`
+- `OPENCLAW_IMAGE_MODE`
 
-# （可选）启动 B 站代理服务
-./start_bilibili_server.sh
+### 4. 配置 NapCat / OneBot 反向 WebSocket
+
+NoneBot 侧 `.env` 示例：
+
+```env
+HOST=127.0.0.1
+PORT=8080
+ONEBOT_ACCESS_TOKEN='temp123456'
 ```
 
----
+使用`curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh`下载安装脚本。
 
-## 2. NapCat 连接配置（关键）
-
-NoneBot 默认监听：`ws://127.0.0.1:8080/onebot/v11/ws`
-
-NapCat 侧建议：
+NapCat 侧示例配置：
 
 ```json
 {
   "network": {
+    "httpServers": [],
+    "httpClients": [],
+    "websocketServers": [],
     "websocketClients": [
       {
         "name": "nonebot",
@@ -57,94 +115,66 @@ NapCat 侧建议：
         "messagePostFormat": "array",
         "reportSelfMessage": true,
         "reconnectInterval": 5000,
-        "token": "<ONEBOT_ACCESS_TOKEN>",
+        "token": "temp123456",
         "debug": false,
         "heartInterval": 30000
       }
     ]
   },
+  "musicSignUrl": "",
+  "enableLocalFile2Url": false,
   "parseMultMsg": true
 }
 ```
 
----
-
-## 3. Bilibili 解析说明
-
-### 功能
-
-群聊出现 B 站链接时自动触发，默认发送 **合并转发消息**：
-
-1. 标题 / UP 主 / 数据
-2. 封面图
-3. 简介 + 原视频链接
-4. 代理播放链接（含有效期）
-
-若平台对图片节点兼容异常，会自动降级为纯文本合并转发，再降级为普通文本。
-
-### 需要的环境变量（`.env`）
-
-- `BILI_SESSDATA`
-- `BILI_BILI_JCT`
-- `BILI_DEDEUSERID`
-- `BILI_PROXY_BASE_URL`（例如 `https://aununo.xyz`）
-- `BILI_PROXY_HOST`（默认 `127.0.0.1`）
-- `BILI_PROXY_PORT`（默认 `8091`）
-- `BILI_PROXY_TTL`（默认 `3600`）
-
-> 如果你用 HTTPS 域名做直链，证书必须覆盖你配置的域名。
-
----
-
-## 4. OpenClaw Bridge
-
-桥接插件：`src/plugins/openclaw_bridge.py`
-
-常用变量：
-
-- `OPENCLAW_AGENT_ID=main`
-- `OPENCLAW_BRIDGE_USE_LOCAL=true`
-- `OPENCLAW_BRIDGE_TIMEOUT=180`
-- `OPENCLAW_IMAGE_MODE=true`
-- `OPENCLAW_AUDIO_MODE=true`
-
----
-
-## 5. 常用维护命令
+### 5. 启动机器人
 
 ```bash
-# 语法检查
-python -m py_compile bot.py bilibili_server.py src/plugins/*.py
-
-# 查看日志
-tail -f logs/mybot.log
-tail -f logs/bilibili_server.log
+source .venv/bin/activate
+python bot.py
 ```
 
----
+## 🔧 常用命令
 
-## 6. 项目结构
+```bash
+# 启动
+source .venv/bin/activate
+python bot.py
+
+# 重新安装依赖
+pip install -r requirements.txt
+
+# 语法检查
+python -m compileall src bot.py
+```
+
+## 📁 项目结构
 
 ```text
 MyBot/
-├── bot.py
-├── bilibili_server.py
-├── start_mybot.sh
-├── start_bilibili_server.sh
-├── env.example
-├── requirements.txt
-├── pyproject.toml
-└── src/plugins/
-    ├── openclaw_bridge.py
-    ├── bilibili.py
-    ├── remind.py
-    ├── todo.py
-    ├── schedule.py
-    └── ...
+├── bot.py                  # NoneBot 入口文件
+├── pyproject.toml          # 项目配置
+├── data/                   # 数据持久化目录
+├── README.md               # 项目说明
+├── LICENSE                 # 许可证
+├── src/
+│   └── plugins/
+│       ├── openclaw_bridge.py
+│       ├── remind.py
+│       ├── todo.py
+│       ├── weather.py
+│       └── ...
+├── env.example             # 环境变量模板
+└── requirements.txt        # Python 依赖
 ```
 
----
+## 🙏 致谢
 
-## License
+- [NoneBot2](https://nonebot.dev/) - Python 异步机器人框架
+- [NapCat](https://github.com/NapNeko/NapCatQQ) - QQ 协议端
+- [OneBot](https://onebot.dev/) - 聊天机器人接口标准
+- [OpenClaw](https://github.com/openclaw/openclaw) - Agent / LLM 系统能力支持
 
-MIT
+## 📄 许可证
+
+本项目基于 **MIT License** 开源，详见 [LICENSE](LICENSE) 文件。

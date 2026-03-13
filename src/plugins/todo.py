@@ -1,26 +1,38 @@
 import json
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Dict, List, Literal, TypedDict, cast
 
 from nonebot import on_command
 from nonebot.matcher import Matcher
 from nonebot.adapters.onebot.v11 import MessageEvent, Message
 from nonebot.params import CommandArg
 
+from ._data_paths import resolve_data_dir
 
 plugin_dir = Path(__file__).parent
-
-data_dir = Path("/app/data")
-if not data_dir.exists():
-    data_dir = plugin_dir
+data_dir = resolve_data_dir()
 
 data_file = data_dir / "todo_data.json"
 
 
-TodoDataType = Dict[str, Dict[str, List[Dict[str, Any]]]]
+class TodoItem(TypedDict):
+    task: str
+    done: bool
+
+
+CategoryName = Literal["work", "play"]
+UserTodoData = Dict[CategoryName, List[TodoItem]]
+TodoDataType = Dict[str, UserTodoData]
+
+
 todo_data: TodoDataType = {}
 
-CATEGORIES = ["work", "play"]
+CATEGORIES: tuple[CategoryName, ...] = ("work", "play")
+
+
+def create_empty_user_data() -> UserTodoData:
+    return {category: [] for category in CATEGORIES}
+
 
 def save_data():
     with open(data_file, "w", encoding="utf-8") as f:
@@ -40,11 +52,11 @@ def load_data():
 def init_user_data(user_id: str):
     """初始化用户数据结构，并处理旧格式数据迁移"""
     if user_id not in todo_data:
-        todo_data[user_id] = {category: [] for category in CATEGORIES}
+        todo_data[user_id] = create_empty_user_data()
     elif isinstance(todo_data[user_id], list):
-        old_todos = todo_data[user_id]
+        old_todos = cast(List[TodoItem], todo_data[user_id])
         todo_data[user_id] = {
-            "work": old_todos, 
+            "work": old_todos,
             "play": []
         }
         save_data()

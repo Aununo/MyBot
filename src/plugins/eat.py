@@ -7,12 +7,10 @@ from nonebot.adapters.onebot.v11 import MessageEvent, Bot, Message, MessageSegme
 from nonebot.params import CommandArg
 from nonebot.matcher import Matcher
 
+from ._data_paths import resolve_data_dir
 
 plugin_dir = Path(__file__).parent
-
-data_dir = Path("/app/data")
-if not data_dir.exists():
-    data_dir = plugin_dir
+data_dir = resolve_data_dir()
 
 data_file = data_dir / "eat_data.json"
 
