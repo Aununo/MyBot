@@ -10,12 +10,10 @@ from nonebot.adapters.onebot.v11 import MessageEvent, Message
 from nonebot.params import CommandArg
 from nonebot.log import logger
 
+from ._data_paths import resolve_data_dir
 
 plugin_dir = Path(__file__).parent
-
-data_dir = Path("/app/data")
-if not data_dir.exists():
-    data_dir = plugin_dir
+data_dir = resolve_data_dir()
 
 data_file = data_dir / "countdown_data.json"
 
@@ -103,11 +101,11 @@ def format_timedelta(td):
 load_data()
 
 
-time_matcher = on_command("time", priority=5, block=True)
+countdown_matcher = on_command("countdown", aliases={"倒计时"}, priority=5, block=True)
 
 
-@time_matcher.handle()
-async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):
+@countdown_matcher.handle()
+async def handle_countdown(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):
     user_id = str(event.user_id)
     plain_text = args.extract_plain_text().strip()
     
@@ -118,17 +116,18 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
             await matcher.finish(
                 "⏰ 倒计时功能使用说明：\n\n"
                 "📌 添加事件：\n"
-                "/time add <事件名> <截止时间>\n"
+                "/countdown add <事件名> <截止时间>\n"
                 "时间格式支持：\n"
                 "  • 2025-12-31\n"
                 "  • 2025-12-31 23:59\n"
                 "  • 2025/12/31 23:59:59\n\n"
                 "🔍 查看事件：\n"
-                "/time <事件名>\n\n"
+                "/countdown <事件名>\n\n"
                 "📋 查看所有事件：\n"
-                "/time list\n\n"
+                "/countdown list\n\n"
                 "🗑️ 删除事件：\n"
-                "/time del <事件名>"
+                "/countdown del <事件名>\n\n"
+                "也支持中文别名：/倒计时"
             )
         else:
             parts = ["⏰ 你的所有倒计时事件：\n"]
@@ -151,7 +150,7 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
                 parts.append("\n\n".join(active_events))
                 await matcher.finish("\n".join(parts))
             else:
-                await matcher.finish("你还没有添加任何倒计时事件！\n使用 /time add <事件名> <截止时间> 来添加吧。")
+                await matcher.finish("你还没有添加任何倒计时事件！\n使用 /countdown add <事件名> <截止时间> 来添加吧。")
         return
     
     parts = plain_text.split(maxsplit=1)
@@ -159,12 +158,12 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
     
     if command == "add":
         if len(parts) < 2:
-            await matcher.finish("❌ 用法：/time add <事件名> <截止时间>\n例如：/time add 考试 2025-12-31 18:00")
+            await matcher.finish("❌ 用法：/countdown add <事件名> <截止时间>\n例如：/countdown add 考试 2025-12-31 18:00")
             return
         
         event_parts = parts[1].split(maxsplit=1)
         if len(event_parts) < 2:
-            await matcher.finish("❌ 请提供事件名和截止时间！\n用法：/time add <事件名> <截止时间>")
+            await matcher.finish("❌ 请提供事件名和截止时间！\n用法：/countdown add <事件名> <截止时间>")
             return
         
         event_name = event_parts[0]
@@ -205,7 +204,7 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
     
     elif command == "del" or command == "delete":
         if len(parts) < 2:
-            await matcher.finish("❌ 用法：/time del <事件名>")
+            await matcher.finish("❌ 用法：/countdown del <事件名>")
             return
         
         event_name = parts[1].strip()
@@ -221,7 +220,7 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
     
     elif command == "list":
         if not countdown_data[user_id]:
-            await matcher.finish("你还没有添加任何倒计时事件！\n使用 /time add <事件名> <截止时间> 来添加吧。")
+            await matcher.finish("你还没有添加任何倒计时事件！\n使用 /countdown add <事件名> <截止时间> 来添加吧。")
             return
         
         parts_list = ["⏰ 你的所有倒计时事件：\n"]
@@ -250,8 +249,8 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
             await matcher.finish(
                 f"❌ 事件 '{event_name}' 不存在！\n\n"
                 "💡 提示：\n"
-                "• 使用 /time list 查看所有事件\n"
-                "• 使用 /time add <事件名> <截止时间> 添加新事件"
+                "• 使用 /countdown list 查看所有事件\n"
+                "• 使用 /countdown add <事件名> <截止时间> 添加新事件"
             )
             return
         
@@ -275,4 +274,3 @@ async def handle_time(event: MessageEvent, matcher: Matcher, args: Message = Com
                 f"⏰ 截止时间：{event_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
                 f"⚠️ 该事件已过期！"
             )
-

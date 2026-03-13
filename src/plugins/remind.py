@@ -17,6 +17,8 @@ from nonebot.adapters.onebot.v11 import (
 from nonebot.log import logger
 from nonebot.params import ArgPlainText, Matcher, CommandArg
 
+from ._data_paths import resolve_data_dir
+
 
 try:
     TARGET_TZ = ZoneInfo("Asia/Shanghai")
@@ -35,10 +37,7 @@ except (ImportError, RuntimeError):
 
 
 plugin_dir = Path(__file__).parent
-
-data_dir = Path("/app/data")
-if not data_dir.exists():
-    data_dir = plugin_dir
+data_dir = resolve_data_dir()
 data_file = data_dir / "reminders_data.json"
 reminders_data = {}
 active_snooze_contexts = {}

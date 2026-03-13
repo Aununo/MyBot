@@ -14,6 +14,7 @@ import httpx
 from nonebot import on_message, logger
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 
+from ._data_paths import resolve_data_dir
 
 BILI_VIDEO_API = "https://api.bilibili.com/x/web-interface/view"
 BILI_PLAY_API = "https://api.bilibili.com/x/player/playurl"
@@ -58,9 +59,7 @@ _wbi_key_ts: float = 0.0
 WBI_KEY_TTL = 6 * 60 * 60
 
 plugin_dir = Path(__file__).parent
-data_dir = Path("/app/data")
-if not data_dir.exists():
-    data_dir = plugin_dir
+data_dir = resolve_data_dir()
 proxy_file = data_dir / "bili_proxy.json"
 _forward_name_cache: dict[str, str] = {}
 
