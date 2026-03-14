@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
 
+from src.plugins._data_paths import resolve_data_dir
+
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
@@ -20,8 +22,8 @@ BILI_PROXY_HOST = os.getenv("BILI_PROXY_HOST", "127.0.0.1")
 UPSTREAM_REFERER = "https://www.bilibili.com"
 DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
-plugin_dir = BASE_DIR / "src" / "plugins"
-proxy_file = plugin_dir / "bili_proxy.json"
+data_dir = resolve_data_dir()
+proxy_file = data_dir / "bili_proxy.json"
 
 app = FastAPI(title="MyBot Bilibili Proxy", version="2.0.0")
 
