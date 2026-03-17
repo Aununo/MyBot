@@ -1717,6 +1717,16 @@ async def handle_bridge(bot: Bot, event: MessageEvent):
         await bridge.finish()
         return
 
+    # 本地插件命令优先：像 /status /help /ping 这类已有命令，
+    # 不应被 bridge 抢占，直接交给对应插件处理。
+    if user_text.startswith("/"):
+        slash_cmd = normalize_plugin_command(_clean_user_text(user_text).split()[0].lstrip("/"))
+        if slash_cmd and is_supported_plugin_command(slash_cmd):
+            logger.info(
+                f"openclaw_bridge skip local plugin command gid={event.group_id} uid={event.user_id} cmd={slash_cmd}"
+            )
+            return
+
     if _is_current_time_query(user_text):
         now = datetime.now(SH_TZ) if SH_TZ else datetime.utcnow()
         await bot.send(event, f"现在是 {now.strftime('%Y-%m-%d %H:%M:%S')}（北京时间）")
