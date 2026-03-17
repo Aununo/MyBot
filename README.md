@@ -18,18 +18,17 @@
 - **丰富插件** - 内置提醒、待办、课表、天气、图片、B站解析等功能
 - **数据持久化** - 自动保存数据，重启不丢失
 - **易于扩展** - 模块化设计，便于继续添加自定义插件
-- **状态监控** - 支持基础状态查询与运行情况检查
 - **OpenClaw Bridge** - 可将 QQ 消息桥接到 OpenClaw，支持更强的 Agent / LLM 对话能力
 
 ## 📦 插件列表
 
 ### 官方插件
 - **apscheduler** - 定时任务调度支持
-- **status** - 系统状态监控（`/status`）
 
 ### 自定义插件
 - **help** - 查看所有命令帮助 (`/help`)
-- **ping** - 快速状态检查 (`/ping`)
+- **ping** - 快速连通性检查 (`/ping`)
+- **status** - 服务器状态查询 (`/status`，支持戳一戳触发)
 - **schedule** - 个人课程表管理 (`/今日课表`)
 - **remind** - 灵活的提醒功能 (`/remind`)
 - **todo** - 待办事项管理 (`/todo`)
@@ -78,7 +77,6 @@ cp env.example .env
 至少需要根据你的实际环境修改：
 - `SUPERUSERS`
 - `PORT`
-- `ONEBOT_ACCESS_TOKEN`
 
 如果要启用 OpenClaw Bridge，建议同时关注：
 - `OPENCLAW_AGENT_ID`
@@ -92,12 +90,14 @@ cp env.example .env
 NoneBot 侧 `.env` 示例：
 
 ```env
-HOST=127.0.0.1
+HOST=0.0.0.0
 PORT=8080
-ONEBOT_ACCESS_TOKEN='temp123456'
+ONEBOT_WS_URLS=[]
 ```
 
-使用`curl -o napcat.sh https://nclatest.znin.net/NapNeko/NapCat-Installer/main/script/install.sh`下载安装脚本。
+推荐由 **NapCat 主动反向连接** 到 NoneBot：
+- 反向 WebSocket 地址：`ws://127.0.0.1:8080/onebot/v11/ws`
+- 如果部署在同一台机器，通常 **不需要 token**
 
 NapCat 侧示例配置：
 
@@ -106,32 +106,60 @@ NapCat 侧示例配置：
   "network": {
     "httpServers": [],
     "httpClients": [],
+    "httpSseServers": [],
     "websocketServers": [],
     "websocketClients": [
       {
-        "name": "nonebot",
+        "name": "mybot-reverse-ws",
         "enable": true,
         "url": "ws://127.0.0.1:8080/onebot/v11/ws",
+        "reportSelfMessage": false,
         "messagePostFormat": "array",
-        "reportSelfMessage": true,
-        "reconnectInterval": 5000,
-        "token": "temp123456",
+        "token": "",
         "debug": false,
-        "heartInterval": 30000
+        "heartInterval": 30000,
+        "reconnectInterval": 5000
       }
     ]
-  },
-  "musicSignUrl": "",
-  "enableLocalFile2Url": false,
-  "parseMultMsg": true
+  }
 }
 ```
+
+如果是无桌面服务器，可配合 `screen + xvfb-run -a qq --no-sandbox` 启动 NapCat/QQ；登录时扫码即可。
 
 ### 5. 启动机器人
 
 ```bash
 source .venv/bin/activate
 python bot.py
+```
+
+项目内也提供了两个直接启动脚本：
+
+```bash
+# 启动 NoneBot 本体
+bash start_mybot.sh
+
+# 启动 B 站代理服务（给 bilibili 插件生成可访问代理链接）
+bash start_bilibili_server.sh
+```
+
+如果你使用 `screen` 管理进程，可参考：
+
+```bash
+# MyBot
+screen -S mybot
+cd /path/to/MyBot
+bash start_mybot.sh
+
+# Bilibili 代理服务
+screen -S bilibili
+cd /path/to/MyBot
+bash start_bilibili_server.sh
+
+# NapCat / QQ
+screen -S napcat
+# 然后在该会话中启动 NapCat/QQ
 ```
 
 ## 🔧 常用命令
@@ -146,6 +174,9 @@ pip install -r requirements.txt
 
 # 语法检查
 python -m compileall src bot.py
+
+# 查看日志（如果你用了 screen / 重定向）
+tail -f logs/mybot.log
 ```
 
 ## 📁 项目结构
@@ -160,6 +191,7 @@ MyBot/
 ├── src/
 │   └── plugins/
 │       ├── openclaw_bridge.py
+│       ├── status.py
 │       ├── remind.py
 │       ├── todo.py
 │       ├── weather.py
