@@ -75,11 +75,8 @@ def parse_datetime(date_str: str) -> datetime:
 
 
 def format_timedelta(td):
-    total_seconds = int(td.total_seconds())
-    
-    if total_seconds < 0:
-        return None
-    
+    total_seconds = abs(int(td.total_seconds()))
+
     days = total_seconds // 86400
     hours = (total_seconds % 86400) // 3600
     minutes = (total_seconds % 3600) // 60
@@ -94,8 +91,15 @@ def format_timedelta(td):
         parts.append(f"{minutes}分钟")
     if seconds > 0 or not parts:
         parts.append(f"{seconds}秒")
-    
+
     return "".join(parts)
+
+
+def format_relative_time(td):
+    time_text = format_timedelta(td)
+    if td.total_seconds() >= 0:
+        return f"剩余：{time_text}"
+    return f"已过去：{time_text}"
 
 
 load_data()
@@ -121,6 +125,7 @@ async def handle_countdown(event: MessageEvent, matcher: Matcher, args: Message 
                 "  • 2025-12-31\n"
                 "  • 2025-12-31 23:59\n"
                 "  • 2025/12/31 23:59:59\n\n"
+                "也可以添加过去的日期，用来查看已经过去多久。\n\n"
                 "🔍 查看事件：\n"
                 "/countdown <事件名>\n\n"
                 "📋 查看所有事件：\n"
@@ -139,12 +144,10 @@ async def handle_countdown(event: MessageEvent, matcher: Matcher, args: Message 
                 if event_time.tzinfo is None:
                     event_time = event_time.replace(tzinfo=TARGET_TZ)
                 td = event_time - now
-                
-                if td.total_seconds() > 0:
-                    time_left = format_timedelta(td)
-                    active_events.append(f"📌 {event_name}\n   截止：{event_data['time']}\n   剩余：{time_left}")
-                else:
-                    active_events.append(f"📌 {event_name}\n   截止：{event_data['time']}\n   ⚠️ 已过期")
+
+                active_events.append(
+                    f"📌 {event_name}\n   截止：{event_data['time']}\n   {format_relative_time(td)}"
+                )
             
             if active_events:
                 parts.append("\n\n".join(active_events))
@@ -182,10 +185,7 @@ async def handle_countdown(event: MessageEvent, matcher: Matcher, args: Message 
             return
         
         now = datetime.now(TARGET_TZ)
-        if event_time <= now:
-            await matcher.finish("❌ 截止时间必须是未来的时间！")
-            return
-        
+
         countdown_data[user_id][event_name] = {
             "time": event_time.isoformat(),
             "created_at": now.isoformat()
@@ -193,13 +193,12 @@ async def handle_countdown(event: MessageEvent, matcher: Matcher, args: Message 
         save_data()
         
         td = event_time - now
-        time_left = format_timedelta(td)
         
         await matcher.finish(
             f"✅ 已添加倒计时事件：\n\n"
             f"📌 事件：{event_name}\n"
             f"⏰ 截止：{event_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-            f"⏳ 剩余：{time_left}"
+            f"⏳ {format_relative_time(td)}"
         )
     
     elif command == "del" or command == "delete":
@@ -232,12 +231,10 @@ async def handle_countdown(event: MessageEvent, matcher: Matcher, args: Message 
             if event_time.tzinfo is None:
                 event_time = event_time.replace(tzinfo=TARGET_TZ)
             td = event_time - now
-            
-            if td.total_seconds() > 0:
-                time_left = format_timedelta(td)
-                active_events.append(f"📌 {event_name}\n   截止：{event_data['time']}\n   剩余：{time_left}")
-            else:
-                active_events.append(f"📌 {event_name}\n   截止：{event_data['time']}\n   ⚠️ 已过期")
+
+            active_events.append(
+                f"📌 {event_name}\n   截止：{event_data['time']}\n   {format_relative_time(td)}"
+            )
         
         parts_list.append("\n\n".join(active_events))
         await matcher.finish("\n".join(parts_list))
@@ -260,17 +257,9 @@ async def handle_countdown(event: MessageEvent, matcher: Matcher, args: Message 
             event_time = event_time.replace(tzinfo=TARGET_TZ)
         now = datetime.now(TARGET_TZ)
         td = event_time - now
-        
-        if td.total_seconds() > 0:
-            time_left = format_timedelta(td)
-            await matcher.finish(
-                f"📌 事件：{event_name}\n\n"
-                f"⏰ 截止时间：{event_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"⏳ 剩余时间：{time_left}"
-            )
-        else:
-            await matcher.finish(
-                f"📌 事件：{event_name}\n\n"
-                f"⏰ 截止时间：{event_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"⚠️ 该事件已过期！"
-            )
+
+        await matcher.finish(
+            f"📌 事件：{event_name}\n\n"
+            f"⏰ 截止时间：{event_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"⏳ {format_relative_time(td)}"
+        )
