@@ -42,6 +42,54 @@ data_file = data_dir / "reminders_data.json"
 reminders_data = {}
 active_snooze_contexts = {}
 
+
+def _extract_target_user_id(args: Message) -> str:
+    """从命令参数里的 @ 提及提取目标用户，仅取第一个有效 at。"""
+    try:
+        for seg in args:
+            if getattr(seg, "type", "") != "at":
+                continue
+            qq = str(seg.data.get("qq", "") or "").strip()
+            if qq and qq != "all":
+                return qq
+    except Exception:
+        pass
+    return ""
+
+
+def _resolve_target_user_id(event: MessageEvent, args: Message) -> str:
+    target_user_id = _extract_target_user_id(args)
+    if target_user_id and isinstance(event, GroupMessageEvent):
+        return target_user_id
+    return str(event.user_id)
+
+
+def _build_target_label(target_user_id: str, owner_user_id: str) -> str:
+    if str(target_user_id) == str(owner_user_id):
+        return "你"
+    return f"[CQ:at,qq={target_user_id}]"
+
+
+def _normalize_target_event_text(event_text: str, target_user_id: str, owner_user_id: str) -> str:
+    """当目标不是发起人时，去掉事件名前缀里的亲属称呼，避免落库成“你妈妈吃药”。"""
+    text = str(event_text or "").strip()
+    if not text or str(target_user_id) == str(owner_user_id):
+        return text
+
+    patterns = [
+        r"^你妈妈",
+        r"^你爸爸",
+        r"^妈妈",
+        r"^爸爸",
+    ]
+    normalized = text
+    for p in patterns:
+        normalized = re.sub(p, "", normalized).strip()
+        if normalized != text:
+            break
+
+    return normalized or text
+
 def save_data():
     with open(data_file, "w", encoding="utf-8") as f:
         json.dump(reminders_data, f, ensure_ascii=False, indent=4)
@@ -228,6 +276,7 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
         return
         
     event_text = " ".join(event_tokens)
+    event_text = _normalize_target_event_text(event_text, target_user_id, owner_user_id)
     hour, minute = map(int, time_str.split(':'))
     
     target_date = None
@@ -238,12 +287,13 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
             await remind.finish(f"日期格式 \"{date_str}\" 不正确哦！\n支持格式：明天、后天、3天后、2025-10-20、10-20")
             return
     
-    user_id = str(event.user_id)
+    owner_user_id = str(event.user_id)
+    target_user_id = _resolve_target_user_id(event, args)
     is_group = isinstance(event, GroupMessageEvent)
-    session_id = str(event.group_id) if is_group else user_id
+    session_id = str(event.group_id) if is_group else owner_user_id
 
-    reminders_data.setdefault(user_id, [])
-    user_reminders = reminders_data[user_id]
+    reminders_data.setdefault(target_user_id, [])
+    user_reminders = reminders_data[target_user_id]
     
     existing_reminder_index = -1
     for i, r in enumerate(user_reminders):
@@ -261,8 +311,8 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
                 logger.warning(f"尝试移除旧任务({old_job_id})失败: 任务不存在。")
         del user_reminders[existing_reminder_index]
 
-    job_id = f"reminder_{user_id}_{uuid.uuid4()}"
-    job_args = [bot, session_id, event.user_id, event_text, job_id, is_group]
+    job_id = f"reminder_{target_user_id}_{uuid.uuid4()}"
+    job_args = [bot, session_id, int(target_user_id), event_text, job_id, is_group]
 
     if weekdays:
         if is_daily or interval_days:
@@ -351,7 +401,8 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
     new_reminder = {
         "event": event_text, "hour": hour, "minute": minute,
         "job_id": job_id, "is_daily": is_daily,
-        "session_id": session_id, "is_group": is_group
+        "session_id": session_id, "is_group": is_group,
+        "creator_user_id": owner_user_id, "target_user_id": target_user_id
     }
     if target_date:
         new_reminder["date"] = target_date.strftime("%Y-%m-%d")
@@ -363,7 +414,7 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
     user_reminders.append(new_reminder)
     save_data()
 
-    logger.info(f"为用户({user_id})在 Session({session_id}) 中设置了提醒: {new_reminder}")
+    logger.info(f"为目标用户({target_user_id})由发起人({owner_user_id})在 Session({session_id}) 中设置了提醒: {new_reminder}")
 
     weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
     if weekdays:
@@ -385,7 +436,9 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
         time_desc = f"今天的 {time_str}"
     
     action_verb = "更新" if existing_reminder_index != -1 else "设置"
-    await remind.finish(f"提醒{action_verb}成功！我会在{time_desc}提醒你【{event_text}】。")
+    if target_user_id == owner_user_id:
+        await remind.finish(f"提醒{action_verb}成功！我会在{time_desc}提醒你【{event_text}】。")
+    await remind.finish(MessageSegment.at(int(target_user_id)) + Message(f" 好，我会在{time_desc}提醒你【{event_text}】。"))
 
 
 @remind_all.handle()
@@ -667,16 +720,19 @@ async def handle_not_ready(bot: Bot, event: MessageEvent, args: Message = Comman
 
 
 @list_reminders.handle()
-async def handle_list_reminders(event: MessageEvent):
-    user_id = str(event.user_id)
-    
-    user_reminders = reminders_data.get(user_id, [])
+async def handle_list_reminders(event: MessageEvent, args: Message = CommandArg()):
+    owner_user_id = str(event.user_id)
+    target_user_id = _resolve_target_user_id(event, args)
+
+    user_reminders = reminders_data.get(target_user_id, [])
     
     if not user_reminders:
-        await list_reminders.finish("你还没有设置任何提醒哦。")
+        if target_user_id == owner_user_id:
+            await list_reminders.finish("你还没有设置任何提醒哦。")
+        await list_reminders.finish(MessageSegment.at(int(target_user_id)) + Message(" 目前还没有设置任何提醒哦。"))
         return
-        
-    reply_msg = "你当前的提醒有：\n"
+
+    reply_msg = "你当前的提醒有：\n" if target_user_id == owner_user_id else f"[CQ:at,qq={target_user_id}] 当前的提醒有：\n"
     
     def sort_key(r):
         date_str = r.get('date', '')
@@ -723,8 +779,10 @@ async def handle_list_reminders(event: MessageEvent):
         
         location = f"群聊({r['session_id']})中" if r.get('is_group') else "私聊中"
         reply_msg += f"- {when_str}：{r['event']} ({location})\n"
-        
-    await list_reminders.finish(reply_msg.strip())
+
+    if target_user_id == owner_user_id:
+        await list_reminders.finish(reply_msg.strip())
+    await list_reminders.finish(MessageSegment.at(int(target_user_id)) + Message(" 的提醒如下：\n" + "\n".join(reply_msg.strip().split("\n")[1:])))
 
 
 @cancel_reminder.handle()
@@ -736,19 +794,22 @@ async def handle_cancel_reminder(matcher: Matcher, args: Message = CommandArg())
         matcher.set_arg("event_text", args)
 
 @cancel_reminder.got("event_text")
-async def process_cancel_reminder(event: MessageEvent, event_text: str = ArgPlainText("event_text")):
+async def process_cancel_reminder(event: MessageEvent, args: Message = CommandArg(), event_text: str = ArgPlainText("event_text")):
     if not scheduler:
         await cancel_reminder.finish("抱歉，定时提醒功能未准备就绪，无法操作。")
-        
-    user_id = str(event.user_id)
 
-    event_to_cancel = event_text.strip()
-    
-    user_reminders = reminders_data.get(user_id, [])
+    owner_user_id = str(event.user_id)
+    target_user_id = _resolve_target_user_id(event, args)
+
+    event_to_cancel = _normalize_target_event_text(event_text.strip(), target_user_id, owner_user_id)
+
+    user_reminders = reminders_data.get(target_user_id, [])
     reminder_to_remove = next((r for r in user_reminders if r.get("event") == event_to_cancel), None)
             
     if not reminder_to_remove:
-        await cancel_reminder.finish(f"没有找到名为【{event_to_cancel}】的提醒。")
+        if target_user_id == owner_user_id:
+            await cancel_reminder.finish(f"没有找到名为【{event_to_cancel}】的提醒。")
+        await cancel_reminder.finish(MessageSegment.at(int(target_user_id)) + Message(f" 当前没有名为【{event_to_cancel}】的提醒。"))
         return
         
     job_id = reminder_to_remove.get("job_id")
@@ -763,15 +824,17 @@ async def process_cancel_reminder(event: MessageEvent, event_text: str = ArgPlai
             # 这里不抛出异常，继续执行删除操作
 
     user_reminders.remove(reminder_to_remove)
-    reminders_data[user_id] = user_reminders
+    reminders_data[target_user_id] = user_reminders
 
-    if not reminders_data[user_id]:
-        del reminders_data[user_id]
+    if not reminders_data[target_user_id]:
+        del reminders_data[target_user_id]
             
     save_data()
     
-    logger.info(f"用户({user_id})取消了提醒: {event_to_cancel}")
-    await cancel_reminder.finish(f"好的，我已经取消了【{event_to_cancel}】的提醒。")
+    logger.info(f"发起人({owner_user_id})为目标用户({target_user_id})取消了提醒: {event_to_cancel}")
+    if target_user_id == owner_user_id:
+        await cancel_reminder.finish(f"好的，我已经取消了【{event_to_cancel}】的提醒。")
+    await cancel_reminder.finish(MessageSegment.at(int(target_user_id)) + Message(f" 的提醒【{event_to_cancel}】我已经取消了。"))
 
 
 def reschedule_jobs(bot: Bot):

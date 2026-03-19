@@ -1005,6 +1005,11 @@ def _build_trace_text(tname: str, targs: Dict[str, Any]) -> str:
     return f"🛠️ 已执行工具：{t}"
 
 
+def _should_bypass_plugin_rewrite(plugin_command: str) -> bool:
+    cmd = _clean_user_text(str(plugin_command or "")).strip().lower()
+    return cmd.startswith("/remind") or cmd.startswith("/listreminders") or cmd.startswith("/我的提醒") or cmd.startswith("/cancelremind") or cmd.startswith("/取消提醒")
+
+
 async def _rewrite_plugin_output(
     role_prompt: str,
     user_text: str,
@@ -1845,6 +1850,13 @@ async def handle_bridge(bot: Bot, event: MessageEvent):
                         if last_tool_name == "plugin_call"
                         else _clean_user_text(str(last_tool_args.get("command", "")))
                     )
+                    if _should_bypass_plugin_rewrite(plugin_cmd or ""):
+                        if tool_msg is not None:
+                            await bot.send(event, tool_msg)
+                            await bridge.finish()
+                            return
+                        reply = last_tool_text
+                        break
                     rewritten = await _rewrite_plugin_output(
                         role_prompt=role_prompt,
                         user_text=user_text,
@@ -1876,17 +1888,20 @@ async def handle_bridge(bot: Bot, event: MessageEvent):
                 if last_tool_name == "plugin_call"
                 else _clean_user_text(str(last_tool_args.get("command", "")))
             )
-            rewritten = await _rewrite_plugin_output(
-                role_prompt=role_prompt,
-                user_text=user_text,
-                plugin_command=plugin_cmd or "(unknown)",
-                plugin_output_text=last_tool_text,
-                session_id=session_id,
-            )
-            if rewritten:
-                reply = rewritten
-            else:
+            if _should_bypass_plugin_rewrite(plugin_cmd or ""):
                 reply = last_tool_text or "我这边没拿到结果，稍后再试。"
+            else:
+                rewritten = await _rewrite_plugin_output(
+                    role_prompt=role_prompt,
+                    user_text=user_text,
+                    plugin_command=plugin_cmd or "(unknown)",
+                    plugin_output_text=last_tool_text,
+                    session_id=session_id,
+                )
+                if rewritten:
+                    reply = rewritten
+                else:
+                    reply = last_tool_text or "我这边没拿到结果，稍后再试。"
         else:
             reply = last_tool_text or "我这边没拿到结果，稍后再试。"
         break
