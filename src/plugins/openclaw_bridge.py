@@ -258,6 +258,16 @@ def _infer_kinship_target_user_id(event: GroupMessageEvent, text: str) -> str:
     return ""
 
 
+def _strip_kinship_prefix_for_remind_text(text: str) -> str:
+    raw = _clean_user_text(text or "").strip()
+    if not raw:
+        return raw
+
+    # remind/cancelremind 的事件名应当是干净内容，不要把“你妈妈/你爸爸”混进去。
+    cleaned = re.sub(r"^(?:你妈妈|你爸爸|妈妈|爸爸)", "", raw).strip()
+    return cleaned or raw
+
+
 def _inject_kinship_target_into_tool_call(tool: str, args: Dict[str, Any], event: GroupMessageEvent, user_text: str) -> Dict[str, Any]:
     if not isinstance(args, dict):
         return args
@@ -275,6 +285,19 @@ def _inject_kinship_target_into_tool_call(tool: str, args: Dict[str, Any], event
         has_target = any(str(out.get(k, "")).strip() for k in ("target_user_id", "target_qq", "user_id"))
         if not has_target:
             out["target_user_id"] = inferred
+
+        if cmd in {"remind", "cancelremind", "取消提醒"}:
+            raw = out.get("raw")
+            if isinstance(raw, str) and raw.strip():
+                out["raw"] = _strip_kinship_prefix_for_remind_text(raw)
+
+            argv = out.get("argv")
+            if isinstance(argv, list) and argv:
+                first = _clean_user_text(str(argv[0])).strip()
+                if first:
+                    argv2 = list(argv)
+                    argv2[0] = _strip_kinship_prefix_for_remind_text(first)
+                    out["argv"] = argv2
         return out
 
     if tool == "plugin_command":
@@ -283,11 +306,13 @@ def _inject_kinship_target_into_tool_call(tool: str, args: Dict[str, Any], event
             return out
         low = command.lower()
         if low.startswith("/remind") or low.startswith("/listreminders") or low.startswith("/我的提醒") or low.startswith("/cancelremind") or low.startswith("/取消提醒"):
-            if "[CQ:at,qq=" not in command:
-                parts = command.split(maxsplit=1)
-                head = parts[0]
-                tail = parts[1] if len(parts) > 1 else ""
-                out["command"] = f"{head} [CQ:at,qq={inferred}] {tail}".strip()
+            parts = command.split(maxsplit=1)
+            head = parts[0]
+            tail = parts[1] if len(parts) > 1 else ""
+            tail = re.sub(r"^\[CQ:at,qq=\d+\]\s*", "", tail).strip()
+            if head.lower() in {"/remind", "/cancelremind", "/取消提醒"}:
+                tail = _strip_kinship_prefix_for_remind_text(tail)
+            out["command"] = f"{head} [CQ:at,qq={inferred}] {tail}".strip()
         return out
 
     return out
