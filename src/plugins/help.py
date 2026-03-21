@@ -117,18 +117,22 @@ HELP_DETAILS = {
 - /倒计时
   » 中文别名，等价于 /countdown""",
 
-    "opsalert": """🛠️【运维告警插件】
+    "ops": """🛠️【运维告警插件】
 查看和触发当前运维巡检状态。
-- /opsalert
+- /ops
   » 查看当前告警配置、活跃告警和 watchdog 偏移信息。
-- /opsalert test
+- /ops test
   » 发送一条测试告警到目标群。
-- /opsalert check
+- /ops check
   » 立即执行一次巡检，并把新告警或恢复通知发到目标群。
-- /opsalert now
-  » 等价于 /opsalert check。
-- /opsalert run
-  » 等价于 /opsalert check。""",
+- /ops status
+  » 查看运维总状态。
+- /ops restart mybot
+  » 计划内重启 mybot。
+- /ops start openclaw
+  » 启动 OpenClaw。
+- /ops stop openclaw
+  » 停止 OpenClaw。""",
     
     "weather": """🌦️【天气查询插件】
 查询指定城市的实时天气信息。
@@ -185,7 +189,7 @@ HELP_DETAILS = {
     
     "status": """✨【通用指令 - 状态】
 - /status
-  » 获取更完整的服务器状态：CPU、内存、磁盘、Bot运行时长、系统运行时长、网络统计。
+  » 获取更完整的服务器状态：CPU、内存、进程内存占用、磁盘、系统运行时长。
 - 戳一戳机器人
   » 也会返回状态信息。""",
 
@@ -213,7 +217,7 @@ COMMAND_LIST = """====== 机器人指令列表 ======
 - /remind                - 提醒功能
 - /todo                  - 待办事项
 - /countdown             - 倒计时
-- /opsalert              - 运维告警
+- /ops                   - 运维告警
 - /weather               - 天气查询
 - /课表                  - 课程表管理
 - /pic                   - 图片管理

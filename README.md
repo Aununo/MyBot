@@ -41,6 +41,7 @@
 - **bilibili** - B 站视频解析（群聊自动触发）
 - **email_notifier** - 检查邮箱新邮件（`/check_email`）
 - **openclaw_bridge** - OpenClaw 对话桥接（群聊 @机器人 / 私聊可触发）
+- **ops_alert** - 查看和触发当前运维巡检状态。（`/ops`）
 
 ## 🚀 快速开始
 
