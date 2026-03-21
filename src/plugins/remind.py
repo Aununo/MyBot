@@ -275,6 +275,9 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
         await remind.finish("格式不对哦！请输入要提醒的事件名称。")
         return
         
+    owner_user_id = str(event.user_id)
+    target_user_id = _resolve_target_user_id(event, args)
+
     event_text = " ".join(event_tokens)
     event_text = _normalize_target_event_text(event_text, target_user_id, owner_user_id)
     hour, minute = map(int, time_str.split(':'))
@@ -287,8 +290,6 @@ async def handle_remind(bot: Bot, event: MessageEvent, args: Message = CommandAr
             await remind.finish(f"日期格式 \"{date_str}\" 不正确哦！\n支持格式：明天、后天、3天后、2025-10-20、10-20")
             return
     
-    owner_user_id = str(event.user_id)
-    target_user_id = _resolve_target_user_id(event, args)
     is_group = isinstance(event, GroupMessageEvent)
     session_id = str(event.group_id) if is_group else owner_user_id
 
