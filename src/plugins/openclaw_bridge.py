@@ -970,28 +970,17 @@ def _is_network_tool_call(tname: str, targs: Dict[str, Any]) -> bool:
 def _build_trace_text(tname: str, targs: Dict[str, Any]) -> str:
     t = (tname or "").strip()
 
-    def _friendly_plugin_trace(cmd: str) -> str:
-        plain = _clean_user_text(cmd or "").strip()
-        low = plain.lower()
-        if low.startswith("/remind"):
-            return "🛠️ 已执行提醒命令"
-        if low.startswith("/listreminders") or low.startswith("/我的提醒"):
-            return "🛠️ 已执行查看提醒命令"
-        if low.startswith("/cancelremind") or low.startswith("/取消提醒"):
-            return "🛠️ 已执行取消提醒命令"
-        return f"🛠️ 已执行插件命令：{plain or '(空命令)'}"
-
     if t == "plugin_command":
         cmd = _clean_user_text(str(targs.get("command", "")))
         if _is_network_tool_call(t, targs):
             return f"🌐 已执行联网查询：{cmd or '(空命令)'}"
-        return _friendly_plugin_trace(cmd)
+        return f"🛠️ 已执行插件命令：{cmd or '(空命令)'}"
 
     if t == "plugin_call":
         cmd = _build_plugin_call_command(targs) or "(空命令)"
         if _is_network_tool_call(t, targs):
             return f"🌐 已执行联网查询：{cmd}"
-        return _friendly_plugin_trace(cmd)
+        return f"🛠️ 已执行插件命令：{cmd}"
 
     if t == "plugin_batch":
         cmds = _normalize_batch_commands(targs)
